@@ -503,6 +503,12 @@ function select(skz: string, fly: boolean | 'jump') {
   close.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   close.addEventListener('click', deselect);
 
+  // Verkleinert die geöffnete Karte wieder auf die Kurzansicht, ohne die Schule abzuwählen
+  const mini = el('button', { class: 'minimize', type: 'button' });
+  mini.setAttribute('aria-label', 'Details einklappen');
+  mini.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>';
+  mini.addEventListener('click', () => void setzeDetails(false));
+
   const detailsBtn = el('button', { type: 'button', class: 'btn primary details-btn' });
   detailsBtn.setAttribute('aria-expanded', 'false');
   detailsBtn.setAttribute('aria-controls', 'cardDetail');
@@ -531,6 +537,7 @@ function select(skz: string, fly: boolean | 'jump') {
   app.classList.remove('detail-offen');
   cardEl.replaceChildren(
     close,
+    mini,
     el(
       'div',
       { class: 'card-head' },
