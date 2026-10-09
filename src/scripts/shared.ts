@@ -1,5 +1,5 @@
 import type { Daten, Detail, Ergebnisse, Kategorie, Schule, Uebertritte } from '../lib/types';
-import { hatKategorie } from '../lib/types';
+import { hatKategorie, katFarbe } from '../lib/types';
 import type { AdressTreffer, SuchIndex, Vorschlag } from '../lib/search';
 
 export const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -81,12 +81,14 @@ export function baueFilterChips(container: HTMLElement, kategorien: Kategorie[],
     return b;
   };
   for (const k of kategorien) {
-    zeileA.append(
-      chip(k.label, f.kats.has(k.id), () => {
-        f.kats.has(k.id) ? f.kats.delete(k.id) : f.kats.add(k.id);
-        return f.kats.has(k.id);
-      }),
-    );
+    const c = chip(k.label, f.kats.has(k.id), () => {
+      f.kats.has(k.id) ? f.kats.delete(k.id) : f.kats.add(k.id);
+      return f.kats.has(k.id);
+    });
+    c.classList.add('kat');
+    c.dataset.kat = k.id;
+    c.style.setProperty('--kat', katFarbe(k.id));
+    zeileA.append(c);
   }
   if (!zweiZeilen) container.append(el('span', { class: 'chip sep' }));
   const erh = [
@@ -122,6 +124,8 @@ export function sucheAnbinden(opts: {
   form?: HTMLElement;
   index: () => SuchIndex | undefined;
   onPick: (v: Vorschlag) => void;
+  /** false: keinen "Adresse suchen"-Vorschlag anbieten (z. B. reine Schulsuche) */
+  adresse?: boolean;
 }) {
   const { input, list } = opts;
   let items: Vorschlag[] = [];
@@ -141,7 +145,7 @@ export function sucheAnbinden(opts: {
   };
   const render = () => {
     items = opts.index()?.vorschlaege(input.value) ?? [];
-    const adr = adressVorschlag(input.value);
+    const adr = opts.adresse === false ? null : adressVorschlag(input.value);
     if (adr) {
       // Sieht der Text nach einer Adresse aus (Straße mit Hausnummer), steht der Vorschlag oben, sonst unten
       if (/[a-zäöüß]\D*\d/i.test(adr.text)) items.unshift(adr);

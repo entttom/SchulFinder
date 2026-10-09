@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { type Daten, type Schule, adresse, fmtKurz, hatStandort, kurzName } from '../lib/types';
+import { type Daten, type Schule, adresse, fmtKurz, hatStandort, katFarbe, KAT_FARBEN_LISTE, kurzName } from '../lib/types';
 import { distanceM, fmtDist, fmtNum } from '../lib/geo';
 import { EINZUG_FARBEN, KLASSEN_TEXT, einzugKennzahlen, einzugMoeglich, wohnortUrl, type EinzugKennzahlen } from '../lib/einzug';
 import { umschalten, istGewaehlt, beiAenderung, MAX_AUSWAHL } from './auswahl';
@@ -9,7 +9,7 @@ import { ladeAnsicht, speichereAnsicht } from './ansicht';
 import { speichereOrt } from './ort';
 import { adresseSuchen } from '../lib/geocode';
 import { beiThemeWechsel, istDunkel } from './theme';
-import { SuchIndex } from '../lib/search';
+import { SuchIndex, type Vorschlag } from '../lib/search';
 import {
   $, base, el, loadKern, baueFilterChips, neuerFilter, filterFromParams, filterToParams, passt,
   sucheAnbinden, standortErmitteln, type FilterState,
@@ -66,7 +66,7 @@ const map = new maplibregl.Map({
     },
     layers: [{
       id: 'bm', type: 'raster', source: 'bm',
-      paint: { 'raster-brightness-min': istDunkel() ? 1 : 0, 'raster-brightness-max': istDunkel() ? 0.12 : 1 },
+      paint: { 'raster-brightness-min': istDunkel() ? 1 : 0, 'raster-brightness-max': istDunkel() ? 0.12 : 1, 'raster-saturation': istDunkel() ? -1 : -0.35 },
     }],
   },
   ...(gemerkt
@@ -82,12 +82,14 @@ if (gemerkt) map.jumpTo({ center: [gemerkt.lon, gemerkt.lat], zoom: gemerkt.zoom
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
 const empty = { type: 'FeatureCollection', features: [] } as const;
-const COLOR = '#1f5fbf';
+const COLOR = '#0d7a62';
+/** Punktfarbe je Schulkategorie (MapLibre-Ausdruck) */
+const KAT_AUSDRUCK = ['match', ['get', 'kat'], ...KAT_FARBEN_LISTE.flat(), katFarbe('sonst')] as unknown as string;
 
 /** Karte hell oder dunkel: die graue Grundkarte wird umgekehrt, Punkte und Beschriftungen bekommen passende Farben. */
 const FARBEN = {
-  hell: { punkt: COLOR, rand: '#fff', zahl: '#fff', text: '#14171f', halo: 'rgba(255,255,255,0.95)', auswahlText: '#b34100', auswahlHalo: 'rgba(255,255,255,0.97)' },
-  dunkel: { punkt: '#6ea2ff', rand: '#171a21', zahl: '#0b1220', text: '#eef0f4', halo: 'rgba(23,26,33,0.95)', auswahlText: '#ffa94d', auswahlHalo: 'rgba(23,26,33,0.97)' },
+  hell: { punkt: COLOR, rand: '#fff', zahl: '#fff', text: '#13201c', halo: 'rgba(255,255,255,0.95)', auswahl: COLOR, auswahlText: '#075240', auswahlHalo: 'rgba(255,255,255,0.97)' },
+  dunkel: { punkt: '#3cc79f', rand: '#0b1311', zahl: '#052019', text: '#ecf3ef', halo: 'rgba(11,19,17,0.95)', auswahl: '#3cc79f', auswahlText: '#8be3c6', auswahlHalo: 'rgba(11,19,17,0.97)' },
 };
 let kartenDunkel = false;
 function kartenFarben() {
@@ -95,13 +97,17 @@ function kartenFarben() {
   if (map.getLayer('bm')) {
     map.setPaintProperty('bm', 'raster-brightness-min', kartenDunkel ? 1 : 0);
     map.setPaintProperty('bm', 'raster-brightness-max', kartenDunkel ? 0.12 : 1);
+    map.setPaintProperty('bm', 'raster-saturation', kartenDunkel ? -1 : -0.35);
   }
   if (!mapReady) return;
   map.setPaintProperty('clusters', 'circle-color', f.punkt);
   map.setPaintProperty('clusters', 'circle-stroke-color', f.rand);
   map.setPaintProperty('cluster-count', 'text-color', f.zahl);
-  map.setPaintProperty('points', 'circle-color', f.punkt);
+  map.setPaintProperty('clusters-halo', 'circle-color', f.punkt);
   map.setPaintProperty('points', 'circle-stroke-color', f.rand);
+  map.setPaintProperty('sel', 'circle-color', f.auswahl);
+  map.setPaintProperty('sel', 'circle-stroke-color', f.auswahl);
+  map.setPaintProperty('sel-puls', 'circle-stroke-color', f.auswahl);
   map.setPaintProperty('labels', 'text-color', f.text);
   map.setPaintProperty('labels', 'text-halo-color', f.halo);
   map.setPaintProperty('sel-label', 'text-color', f.auswahlText);
@@ -116,12 +122,18 @@ beiThemeWechsel((dunkel) => {
 map.on('load', () => {
   map.addSource('schulen', { type: 'geojson', data: empty as never, cluster: true, clusterRadius: 48, clusterMaxZoom: 13 });
   map.addSource('sel', { type: 'geojson', data: empty as never });
+  // Cluster: weicher Hof und kräftiger Kern
+  const clusterRadius = ['step', ['get', 'point_count'], 16, 10, 20, 50, 25, 250, 31] as unknown as number;
+  map.addLayer({
+    id: 'clusters-halo', type: 'circle', source: 'schulen', filter: ['has', 'point_count'],
+    paint: { 'circle-color': COLOR, 'circle-opacity': 0.16, 'circle-radius': ['+', clusterRadius, 8] as unknown as number, 'circle-blur': 0.25 },
+  });
   map.addLayer({
     id: 'clusters', type: 'circle', source: 'schulen', filter: ['has', 'point_count'],
     paint: {
-      'circle-color': COLOR, 'circle-opacity': 0.88,
-      'circle-radius': ['step', ['get', 'point_count'], 16, 10, 20, 50, 25, 250, 31],
-      'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
+      'circle-color': COLOR, 'circle-opacity': 0.94,
+      'circle-radius': clusterRadius,
+      'circle-stroke-color': '#fff', 'circle-stroke-width': 2.5,
     },
   });
   map.addLayer({
@@ -132,8 +144,9 @@ map.on('load', () => {
   map.addLayer({
     id: 'points', type: 'circle', source: 'schulen', filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': COLOR, 'circle-stroke-color': '#fff', 'circle-stroke-width': 2,
-      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 14, 9],
+      'circle-color': KAT_AUSDRUCK, 'circle-stroke-color': '#fff',
+      'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 8, 1.5, 14, 2.5],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 14, 9, 17, 12],
     },
   });
   // Schulnamen: erscheinen ab mittlerer Zoomstufe und nur dort, wo Platz ist. Größere Schulen haben Vorrang.
@@ -152,8 +165,12 @@ map.on('load', () => {
     paint: { 'text-color': '#14171f', 'text-halo-color': 'rgba(255,255,255,0.95)', 'text-halo-width': 1.8, 'text-halo-blur': 0.4 },
   });
   map.addLayer({
+    id: 'sel-puls', type: 'circle', source: 'sel',
+    paint: { 'circle-radius': 16, 'circle-opacity': 0, 'circle-stroke-color': COLOR, 'circle-stroke-width': 2, 'circle-stroke-opacity': 0 },
+  });
+  map.addLayer({
     id: 'sel', type: 'circle', source: 'sel',
-    paint: { 'circle-radius': 15, 'circle-color': '#e8590c', 'circle-opacity': 0.25, 'circle-stroke-color': '#e8590c', 'circle-stroke-width': 3 },
+    paint: { 'circle-radius': 17, 'circle-color': COLOR, 'circle-opacity': 0.18, 'circle-stroke-color': COLOR, 'circle-stroke-width': 3 },
   });
   map.addLayer({
     id: 'sel-label', type: 'symbol', source: 'sel',
@@ -161,7 +178,7 @@ map.on('load', () => {
       'text-field': ['get', 'name'], 'text-font': ['Arial Bold'], 'text-size': 14, 'text-anchor': 'top', 'text-offset': [0, 1.5],
       'text-max-width': 10, 'text-allow-overlap': true, 'text-ignore-placement': true,
     },
-    paint: { 'text-color': '#b34100', 'text-halo-color': 'rgba(255,255,255,0.97)', 'text-halo-width': 2.2 },
+    paint: { 'text-color': '#075240', 'text-halo-color': 'rgba(255,255,255,0.97)', 'text-halo-width': 2.2 },
   });
 
   map.on('click', (e: MapMouseEvent) => {
@@ -188,6 +205,26 @@ map.on('load', () => {
   aktualisieren();
   startAuswahl();
 });
+
+/** Ring um die gewählte Schule: läuft nach der Auswahl dreimal nach außen (nicht bei reduzierter Bewegung). */
+let pulsBis = 0;
+let pulsLaeuft = false;
+function pulsieren() {
+  if (!mapReady || !map.getLayer('sel-puls') || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  pulsBis = performance.now() + 3 * 1600;
+  if (pulsLaeuft) return;
+  pulsLaeuft = true;
+  const start = performance.now();
+  const takt = (t: number) => {
+    const fertig = !state.selected || t >= pulsBis;
+    const p = ((t - start) % 1600) / 1600;
+    map.setPaintProperty('sel-puls', 'circle-radius', 17 + p * 24);
+    map.setPaintProperty('sel-puls', 'circle-stroke-opacity', fertig ? 0 : 0.75 * (1 - p));
+    if (fertig) pulsLaeuft = false;
+    else requestAnimationFrame(takt);
+  };
+  requestAnimationFrame(takt);
+}
 
 /** Trefferfläche um den Tippunkt: am Handy großzügiger als mit der Maus. */
 const grobeEingabe = window.matchMedia('(pointer: coarse)');
@@ -259,7 +296,7 @@ function aktualisieren() {
   const features = gefiltert().map((s) => ({
     type: 'Feature' as const,
     geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
-    properties: { skz: s.skz, name: kurzName(s.name), rang: s.schueler ?? 0 },
+    properties: { skz: s.skz, name: kurzName(s.name), rang: s.schueler ?? 0, kat: s.kat },
   }));
   (map.getSource('schulen') as GeoJSONSource).setData({ type: 'FeatureCollection', features });
   refreshList();
@@ -308,7 +345,7 @@ function renderList() {
       const btn = el(
         'button',
         { class: 'row', type: 'button' },
-        el('span', { class: 'dot', textContent: fmtKurz(s.kat) }),
+        el('span', { class: 'dot', textContent: fmtKurz(s.kat), style: `--kat:${katFarbe(s.kat)}` }),
         el(
           'span',
           { class: 'rtext' },
@@ -576,6 +613,7 @@ function select(skz: string, fly: boolean | 'jump') {
 
   cardEl.classList.remove('offen');
   cardEl.style.height = '';
+  cardEl.style.setProperty('--kat', katFarbe(s.kat));
   app.classList.remove('detail-offen');
   cardEl.replaceChildren(
     close,
@@ -611,6 +649,7 @@ function select(skz: string, fly: boolean | 'jump') {
     });
   }
   setzeLabelFilter(s.skz);
+  pulsieren();
   schreibeUrl();
   merkeAnsicht();
 }
@@ -734,25 +773,21 @@ function deselect() {
 }
 
 /* ---------- Suche und Standort ---------- */
-sucheAnbinden({
-  input: qInput,
-  list: $('suggest'),
-  index: () => state.index,
-  onPick: (v) => {
-    if (v.kind === 'adresse') return void zurAdresse(v.text);
-    deselect();
-    if (v.kind === 'schule') {
-      if (hatStandort(v.schule)) select(v.schule.skz, true);
-      return;
-    }
-    const mit = v.schulen.filter(hatStandort);
-    if (mit.length === 1) return select(mit[0].skz, true);
-    const bounds = new maplibregl.LngLatBounds();
-    mit.forEach((s) => bounds.extend([s.lon!, s.lat!]));
-    map.fitBounds(bounds, { padding: mapPadding(), maxZoom: 15 });
-    setSheet('peek');
-  },
-});
+function vorschlagGewaehlt(v: Vorschlag) {
+  if (v.kind === 'adresse') return void zurAdresse(v.text);
+  deselect();
+  if (v.kind === 'schule') {
+    if (hatStandort(v.schule)) select(v.schule.skz, true);
+    return;
+  }
+  const mit = v.schulen.filter(hatStandort);
+  if (mit.length === 1) return select(mit[0].skz, true);
+  const bounds = new maplibregl.LngLatBounds();
+  mit.forEach((s) => bounds.extend([s.lon!, s.lat!]));
+  map.fitBounds(bounds, { padding: mapPadding(), maxZoom: 15 });
+  setSheet('peek');
+}
+sucheAnbinden({ input: qInput, list: $('suggest'), index: () => state.index, onPick: vorschlagGewaehlt });
 $('searchForm').addEventListener('submit', (e) => e.preventDefault());
 
 let meMarker: maplibregl.Marker | null = null;
@@ -809,6 +844,67 @@ async function zumStandort() {
 $('locate').addEventListener('click', () => void zumStandort());
 $('locateSheet').addEventListener('click', () => void zumStandort());
 
+// Filterzeile scrollt seitlich: mit dem Mausrad ebenfalls
+$('chips').addEventListener('wheel', (e) => {
+  const c = e.currentTarget as HTMLElement;
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || c.scrollWidth <= c.clientWidth) return;
+  e.preventDefault();
+  c.scrollLeft += e.deltaY;
+}, { passive: false });
+
+/* ---------- Startseite ---------- */
+const hero = $('hero');
+const heroQ = $<HTMLInputElement>('heroQ');
+let heroKat: string | null = null; // Schulart aus der Startseite, falls die Daten noch laden
+
+function heroZu() {
+  if (hero.hidden || hero.classList.contains('weg')) return;
+  try { sessionStorage.setItem('schulfinder.intro', '1'); } catch { /* egal */ }
+  document.documentElement.classList.remove('intro');
+  const ende = () => {
+    hero.hidden = true;
+    hero.classList.remove('weg');
+  };
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return ende();
+  hero.classList.add('weg');
+  setTimeout(ende, 520);
+}
+function heroAuf() {
+  hero.hidden = false;
+  document.documentElement.classList.add('intro');
+  heroQ.value = '';
+  heroQ.focus();
+}
+function setzeSchulart(kat: string) {
+  heroKat = kat;
+  if (!state.daten) return;
+  state.filter.kats = new Set([kat]);
+  baueFilterChips($('chips'), state.daten.kategorien, state.filter, aktualisieren);
+  aktualisieren();
+  heroKat = null;
+}
+// Die Adresse geht an den Bildungsweg-Planer (nicht in die Adresszeile, nur für diesen Tab)
+$('heroForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  try {
+    if (heroQ.value.trim()) sessionStorage.setItem('schulfinder.bw-adresse', heroQ.value.trim());
+    sessionStorage.setItem('schulfinder.intro', '1');
+  } catch { /* egal */ }
+  location.href = `${base}bildungsweg/`;
+});
+$('heroKarte').addEventListener('click', heroZu);
+$('heroSkip').addEventListener('click', heroZu);
+$('brand').addEventListener('click', heroAuf);
+hero.querySelectorAll<HTMLButtonElement>('.hero-kat').forEach((b) =>
+  b.addEventListener('click', () => {
+    setzeSchulart(b.dataset.kat!);
+    heroZu();
+  }),
+);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !hero.hidden) heroZu();
+});
+
 /* ---------- Start ---------- */
 loadKern()
   .then((d) => {
@@ -821,8 +917,11 @@ loadKern()
     // e=1 ist kein Erhalter, sondern stammt aus älteren Links zum Einzugsgebiet
     const mitFilter = url.has('k') || url.has('b') || (url.has('e') && url.get('e') !== '1');
     state.filter = filterFromParams(mitFilter ? url : new URLSearchParams(ladeAnsicht()?.filter ?? ''), d.kategorien);
+    if (heroKat) state.filter.kats = new Set([heroKat]);
+    heroKat = null;
     baueFilterChips($('chips'), d.kategorien, state.filter, aktualisieren);
     $('schuljahr').textContent = `Schuljahr ${d.schuljahr}`;
+    $('heroZahl').textContent = `${fmtNum(Math.floor(d.schulen.length / 100) * 100)}+`;
     aktualisieren();
     startAuswahl();
   })

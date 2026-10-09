@@ -49,6 +49,11 @@ jobs:
         with:
           path: .cache
           key: daten-${{ github.run_id }}-${{ github.run_attempt }}
+
+      # Tage der offenen Tür von den Schulwebsites: freiwillig, ohne sie baut die Seite trotzdem
+      - run: npm run tdot
+        continue-on-error: true
+        timeout-minutes: 15
       - run: npm run build
         env:
           SITE: https://${{ github.repository_owner }}.github.io

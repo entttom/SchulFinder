@@ -1,5 +1,9 @@
 ---
+// Schriften liegen auf dem eigenen Server (kein Abruf bei Google)
+import '@fontsource-variable/inter/wght.css';
+import '@fontsource-variable/fraunces/opsz.css';
 import '../styles/global.css';
+import '../styles/planer.css';
 interface Props { title: string; description?: string; fab?: boolean }
 const { title, description = 'Schulen in Österreich auf der Karte finden: Volksschulen, Mittelschulen, Gymnasien und mehr.', fab = true } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -11,6 +15,9 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content={description} />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f7f4ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1311" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
     <title>{title}</title>
     <script is:inline>
       try { var t = localStorage.getItem('schulfinder-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}

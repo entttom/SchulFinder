@@ -1,7 +1,14 @@
 ---
 import Base from '../layouts/Base.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import Logo from '../components/Logo.astro';
+import { katFarbe } from '../lib/types';
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const schnellwahl = [
+  ['vs', 'Volksschule'],
+  ['ms', 'Mittelschule'],
+  ['ahs', 'Gymnasium'],
+] as const;
 ---
 <Base title="SchulFinder – Schulen in Österreich">
   <div class="app" id="app">
@@ -9,6 +16,10 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
     <div class="panel">
       <header class="top">
+        <button type="button" class="brand panel-brand" id="brand" aria-label="Startseite von SchulFinder zeigen">
+          <Logo />
+          <span class="brand-name">Schul<b>Finder</b></span>
+        </button>
         <form class="search" id="searchForm" role="search" autocomplete="off">
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="q" type="search" placeholder="Ort oder Schulname" aria-label="Ort oder Schulname suchen" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" />
@@ -19,7 +30,11 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </form>
         <ul id="suggest" class="suggest" role="listbox" hidden></ul>
         <div class="chips" id="chips" role="group" aria-label="Filter">
-          <a class="chip einzug-link" data-keep href={`${base}einzugsgebiet/`}>
+          <a class="chip einzug-link" data-keep href={`${base}bildungsweg/`}>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19c4 0 3-6 8-7s4-6 8-7"/><circle cx="20" cy="5" r="2"/></svg>
+            Bildungsweg planen
+          </a>
+          <a class="chip" data-keep href={`${base}einzugsgebiet/`}>
             <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
             Einzugsgebiet an meiner Adresse
           </a>
@@ -49,6 +64,78 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
     <aside id="card" class="card" hidden aria-live="polite"></aside>
   </div>
+
+  <!-- Startseite: liegt beim ersten Besuch im Tab über der Karte, die dahinter schon lädt -->
+  <section class="hero" id="hero" hidden aria-labelledby="heroTitel">
+    <div class="hero-bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i></div>
+    <div class="hero-inner">
+      <div class="brand hero-brand">
+        <Logo />
+        <span class="brand-name">Schul<b>Finder</b></span>
+        <ThemeToggle />
+      </div>
+
+      <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span><span id="heroZahl">Rund 6.000</span> Schulen · echte Schulwege · echte Übertritte</p>
+      <h1 id="heroTitel" class="hero-title">Der beste Weg für dein Kind <em>beginnt vor eurer Haustür.</em></h1>
+      <p class="hero-lead">Gib eure Adresse ein. SchulFinder plant realistische Bildungswege von der Volksschule bis zur Matura oder Lehre, mit echten Gehzeiten, Schulweg-Check, Übertritten und allen Fristen im Kalender.</p>
+
+      <div class="hero-search-wrap">
+        <form class="search hero-search" id="heroForm" autocomplete="off">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+          <input id="heroQ" type="search" placeholder="Eure Adresse, z. B. Hauptplatz 1, Graz" aria-label="Eure Wohnadresse" enterkeyhint="go" autocomplete="street-address" spellcheck="false" />
+          <button type="submit" class="btn primary hero-locate" id="heroPlan">
+            <span>Bildungsweg planen</span>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </form>
+      </div>
+
+      <div class="hero-kats" role="group" aria-label="Direkt nach Schulart suchen">
+        <span class="hero-kats-label">Oder direkt zur Karte:</span>
+        {schnellwahl.map(([id, label]) => (
+          <button type="button" class="hero-kat" data-kat={id} style={`--kat:${katFarbe(id)}`}>{label}</button>
+        ))}
+      </div>
+
+      <ul class="hero-features">
+        <li>
+          <a class="feature feature-neu" href={`${base}bildungsweg/`}>
+            <span class="feature-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24"><path d="M4 19c4 0 3-6 8-7s4-6 8-7"/><circle cx="4" cy="19" r="1.5"/><circle cx="20" cy="5" r="2"/></svg></span>
+            <span class="feature-t">Bildungsweg planen <span class="neu">Neu</span></span>
+            <span class="feature-s">Von der Volksschule bis zum Abschluss, mit Schulweg-Check und Fristen.</span>
+          </a>
+        </li>
+        <li>
+          <button type="button" class="feature" id="heroKarte">
+            <span class="feature-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg></span>
+            <span class="feature-t">Auf der Karte entdecken</span>
+            <span class="feature-s">Jede Schule mit Schülerzahl, Klassen und Kontakt, farbig nach Schulart.</span>
+          </button>
+        </li>
+        <li>
+          <a class="feature" href={`${base}vergleich/`}>
+            <span class="feature-ico" aria-hidden="true"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h6v14H4zM14 5h6v14h-6z"/></svg></span>
+            <span class="feature-t">Nebeneinander vergleichen</span>
+            <span class="feature-s">Bis zu sechs Schulen: Klassengröße, Schulmittelwerte, Übertritte.</span>
+          </a>
+        </li>
+      </ul>
+
+      <p class="hero-trust">
+        <span>Kostenlos</span><span>Ohne Anmeldung</span><span>Ohne Tracking</span><span>Amtliche Daten</span>
+      </p>
+      <button type="button" class="hero-skip" id="heroSkip">Direkt zur Karte <span aria-hidden="true">→</span></button>
+    </div>
+  </section>
+  <script is:inline>
+    // Startseite nur beim ersten Aufruf im Tab, nicht bei Links auf eine Schule und nicht beim Zurückkehren zur Karte
+    try {
+      if (!location.search && !sessionStorage.getItem('schulfinder.karte') && !sessionStorage.getItem('schulfinder.intro')) {
+        document.getElementById('hero').hidden = false;
+        document.documentElement.classList.add('intro');
+      }
+    } catch (e) {}
+  </script>
   <script>
     import '../scripts/map.ts';
   </script>
