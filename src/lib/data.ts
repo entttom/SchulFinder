@@ -18,3 +18,6 @@ export const uebertritte = () => read<Uebertritte>('uebertritte.json', { aus: {}
 export const uebertritteKlein = () =>
   read<{ aus: Record<string, Record<string, string[]>>; zu: Record<string, Record<string, string[]>> }>('uebertritte-klein.json', { aus: {}, zu: {} });
 export const ergebnisse = () => read<Ergebnisse>('ergebnisse.json', { zyklus: 'Schuljahre 2022/23 - 2024/25', daten: {} });
+/** Tage der offenen Tür von den Websites der Schulen (scripts/tdot.mjs), optional. */
+export type TdotTermin = { d: string; z?: string; t: string; q: string };
+export const tdot = () => read<{ stand: string; schulen: Record<string, TdotTermin[]> }>('tdot.json', { stand: '', schulen: {} });

@@ -1,0 +1,206 @@
+---
+import Base from '../../layouts/Base.astro';
+import ThemeToggle from '../../components/ThemeToggle.astro';
+import Logo from '../../components/Logo.astro';
+import { WUENSCHE, INTERESSEN } from '../../lib/planer';
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const START = [
+  ['vs', 'Kommt bald in die Schule', 'Volksschule, Mittelstufe und Oberstufe'],
+  ['sek1', 'Geht in die Volksschule', 'Wechsel mit 10 und mit 14'],
+  ['sek2', 'Ist in Mittelschule oder Unterstufe', 'Wechsel mit 14'],
+] as const;
+const ZIELE = [
+  ['offen', 'Noch offen', 'Alle realistischen Wege'],
+  ['matura', 'Matura & Studium', 'Gymnasium oder Oberstufe'],
+  ['beruf', 'Matura mit Beruf', 'HTL, HAK, HLW, Fachschule'],
+  ['lehre', 'Lehre', 'Polytechnische Schule und Lehre'],
+] as const;
+const VORAUSWAHL = new Set(['kurz', 'sicher', 'nachbarn']);
+---
+<Base title="Bildungsweg planen – SchulFinder" description="Von der Haustür bis zur Matura: realistische Schulwege für dein Kind mit Gehzeiten, Schulweg-Check, Übertritten und Fristen.">
+  <div class="bw" id="bw">
+    <header class="bw-top">
+      <a class="back" data-zurueck href={base}>← Karte</a>
+      <a class="brand" href={base}><Logo /><span class="brand-name">Schul<b>Finder</b></span></a>
+      <ThemeToggle />
+    </header>
+
+    <section class="bw-intro">
+      <div class="bw-intro-bg" aria-hidden="true"><i class="blob b1"></i><i class="blob b2"></i></div>
+      <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>Bildungsweg-Planer</p>
+      <h1 class="bw-title">Von eurer Haustür <em>bis zum Abschluss.</em></h1>
+      <p class="bw-lead">Wir rechnen echte Schulwege, prüfen die Hauptstraßen am Weg und zeigen, wohin die Kinder jeder Schule wirklich wechseln. Daraus entstehen die Wege, die zu eurem Kind passen, mit allen Fristen im Kalender.</p>
+      <ol class="bw-versprechen">
+        <li><b>Echte Gehzeiten</b><span>aus OpenStreetMap, nicht Luftlinie</span></li>
+        <li><b>Schulweg-Check</b><span>Hauptstraßen, die das Kind queren muss</span></li>
+        <li><b>Echte Übertritte</b><span>Statistik Austria, Schuljahr für Schuljahr</span></li>
+      </ol>
+    </section>
+
+    <form class="bw-form" id="bwForm" autocomplete="off">
+      <fieldset class="bw-step">
+        <legend><span class="bw-num">1</span>Wo wohnt ihr?</legend>
+        <div class="bw-adresse">
+          <div class="search bw-search">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>
+            <input id="bwAdresse" type="search" placeholder="Straße, Hausnummer, Ort" aria-label="Eure Wohnadresse" enterkeyhint="go" autocomplete="street-address" spellcheck="false" />
+            <button type="button" id="bwLocate" class="icon-btn" aria-label="Meinen Standort verwenden" title="Meinen Standort verwenden">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+            </button>
+          </div>
+          <p class="bw-standort" id="bwStandort" hidden></p>
+        </div>
+      </fieldset>
+
+      <fieldset class="bw-step">
+        <legend><span class="bw-num">2</span>Wo steht euer Kind gerade?</legend>
+        <div class="opts opts-3">
+          {START.map(([v, t, s], i) => (
+            <label class="opt"><input type="radio" name="start" value={v} checked={i === 0} /><span><b>{t}</b><small>{s}</small></span></label>
+          ))}
+        </div>
+        <div class="bw-zusatz">
+          <label class="bw-feld">
+            <span class="label">Geburtsmonat (optional, für Fristen und Kalender)</span>
+            <input type="month" id="bwGeburt" min="2005-01" max="2025-12" />
+          </label>
+          <div class="bw-feld bw-aktuell" id="bwAktuellFeld" hidden>
+            <span class="label">Aktuelle Schule (optional, dann zählen ihre echten Übertritte)</span>
+            <div class="bw-aktuell-box">
+              <input id="bwAktuell" type="search" placeholder="Name der Schule" aria-label="Aktuelle Schule" spellcheck="false" />
+              <ul id="bwAktuellListe" class="suggest" role="listbox" hidden></ul>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="bw-step">
+        <legend><span class="bw-num">3</span>Welcher Abschluss schwebt euch vor?</legend>
+        <div class="opts opts-4">
+          {ZIELE.map(([v, t, s], i) => (
+            <label class="opt"><input type="radio" name="ziel" value={v} checked={i === 0} /><span><b>{t}</b><small>{s}</small></span></label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset class="bw-step">
+        <legend><span class="bw-num">4</span>Was ist euch wichtig?</legend>
+        <div class="opts opts-wunsch">
+          {WUENSCHE.map((w) => (
+            <label class="opt opt-check"><input type="checkbox" name="wunsch" value={w.id} checked={VORAUSWAHL.has(w.id)} /><span><b>{w.label}</b><small>{w.info}</small></span></label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset class="bw-step">
+        <legend><span class="bw-num">5</span>Welche Schulen kommen in Frage?</legend>
+        <div class="opts opts-wunsch">
+          <label class="opt opt-check"><input type="checkbox" name="rahmen" value="privat" checked /><span><b>Privatschulen einbeziehen</b><small>Gleichwertig zu öffentlichen Schulen, meist mit Schulgeld</small></span></label>
+          <label class="opt opt-check"><input type="checkbox" name="rahmen" value="ohneBonus" /><span><b>Keine Schulen mit Chancenbonus</b><small>Schulen in sozial herausfordernder Lage werden ausgeschlossen</small></span></label>
+        </div>
+        <div class="bw-feld bw-wunsch">
+          <span class="label">Wunschschulen (optional): werden fest eingeplant, z. B. eine bestimmte Volksschule oder das Ziel nach der 8. Schulstufe</span>
+          <div class="bw-aktuell-box">
+            <input id="bwWunsch" type="search" placeholder="Schule suchen, z. B. TGM oder KPH" aria-label="Wunschschule suchen" spellcheck="false" />
+            <ul id="bwWunschListe" class="suggest" role="listbox" hidden></ul>
+          </div>
+          <div class="bw-wunsch-chips" id="bwWunschChips"></div>
+        </div>
+        <p class="muted bw-rahmen-info">Der Chancenbonus gibt Pflichtschulen mit vielen Kindern aus sozial benachteiligten Familien zusätzliches Personal. Über die Qualität des Unterrichts sagt das Kennzeichen nichts aus.</p>
+      </fieldset>
+
+      <fieldset class="bw-step">
+        <legend><span class="bw-num">6</span>Wofür brennt euer Kind? <small>optional</small></legend>
+        <div class="chips wrap bw-interessen">
+          {INTERESSEN.map((i) => (
+            <label class="chip chip-check"><input type="checkbox" name="interesse" value={i.id} /><span>{i.label}</span></label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div class="bw-go-zeile">
+        <button type="submit" class="btn primary bw-go" id="bwGo">
+          <span>Bildungswege berechnen</span>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <p class="bw-privat muted">
+          Eure Adresse geht nur an <a href="https://nominatim.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a> (Ortssuche), die Koordinaten an das <a href="https://routing.openstreetmap.de" target="_blank" rel="noopener">Routing der FOSSGIS</a> (Gehzeiten) und die <a href="https://www.statistik.at/atlas/schulen/" target="_blank" rel="noopener">Statistik Austria</a> (Wohnorte). SchulFinder speichert nichts.
+        </p>
+      </div>
+    </form>
+
+    <section class="bw-laden" id="bwLaden" hidden aria-live="polite">
+      <div class="bw-laden-karte">
+        <div class="bw-laden-weg" aria-hidden="true"><svg viewBox="0 0 200 60"><path d="M6 50C40 50 40 14 80 18s50 30 80 14 30-22 34-24" /></svg><i></i></div>
+        <h2 id="bwLadenTitel">Wir planen eure Wege …</h2>
+        <ol id="bwSchritte" class="bw-schritte"></ol>
+      </div>
+    </section>
+
+    <section class="bw-ergebnis" id="bwErgebnis" hidden>
+      <div class="bw-res-kopf">
+        <div>
+          <p class="bw-res-eyebrow" id="bwResOrt"></p>
+          <h2 id="bwResTitel"></h2>
+        </div>
+        <div class="bw-res-aktionen">
+          <button type="button" class="btn small" id="bwTeilen">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
+            <span>Link teilen</span>
+          </button>
+          <button type="button" class="btn small" id="bwNeu">Neu planen</button>
+        </div>
+      </div>
+
+      <div class="bw-wahl" id="bwWahl" role="tablist" aria-label="Bildungswege"></div>
+
+      <div class="bw-res-grid">
+        <div class="bw-karte-wrap">
+          <div id="bwKarte" class="bw-karte" role="application" aria-label="Karte mit Schulweg"></div>
+          <div class="bw-hud" id="bwHud" hidden></div>
+          <button type="button" class="bw-abspielen" id="bwAbspielen" hidden>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5v14l11-7z"/></svg>
+            <span>Schulweg abspielen</span>
+          </button>
+        </div>
+        <ol class="bw-weg" id="bwWeg"></ol>
+      </div>
+
+      <section class="bw-block" id="bwStroeme" hidden>
+        <h2>Wohin die Kinder wirklich wechseln</h2>
+        <p class="muted">Übertritte laut Statistik Austria (Schuljahr <span data-schuljahr></span>). Wechsel von höchstens 6 Kindern je Zielschule sind nicht einzeln ausgewiesen und fehlen hier.</p>
+        <div id="bwStroemeInhalt" class="bw-stroeme"></div>
+      </section>
+
+      <section class="bw-block" id="bwZeit">
+        <div class="bw-zeit-kopf">
+          <div>
+            <h2>Zeitachse und Fristen</h2>
+            <p class="muted" id="bwZeitInfo"></p>
+          </div>
+          <button type="button" class="btn primary" id="bwIcs">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M12 13v5M9.5 15.5h5"/></svg>
+            <span>Alle Termine in den Kalender</span>
+          </button>
+        </div>
+        <ol class="bw-zeitachse" id="bwZeitachse"></ol>
+      </section>
+
+      <details class="bw-methode">
+        <summary>So rechnen wir, und was wir nicht wissen</summary>
+        <div>
+          <p><b>Schulweg:</b> Geh- und Radzeiten kommen vom Routing der FOSSGIS auf Basis von OpenStreetMap. Für Volksschulkinder rechnen wir 25 % langsamer. Öffi-Zeiten sind eine grobe Schätzung aus der Entfernung und den Haltestellen an beiden Enden. Fahrpläne kennen wir nicht, prüft die Verbindung bitte mit dem Link.</p>
+          <p><b>Schulweg-Check:</b> Wir zählen, wie oft der Fußweg eine Bundes- oder Landesstraße quert. Ob dort eine Ampel, ein Zebrastreifen oder Schülerlotsen stehen, wissen wir nicht. Geht den Weg vorher gemeinsam ab.</p>
+          <p><b>Nachbarschaft:</b> Statistik Austria zeigt, wie viele Kinder einer Schule in jeder 500-m-Zelle wohnen. Das ist kein Schulsprengel und keine Platzgarantie.</p>
+          <p><b>Übertritte:</b> Wie viele Kinder nach der 4. und 8. Schulstufe an welche Schule wechseln. Kleine Wechsel (höchstens 6 Kinder) sind nicht einzeln ausgewiesen.</p>
+          <p><b>Tage der offenen Tür:</b> automatisch auf den Websites der Schulen gefunden. Das kann veraltet oder falsch sein, bitte auf der Website prüfen.</p>
+          <p><b>Fristen:</b> übliche Zeiträume. Genaue Termine legen Bundesland, Gemeinde und Schule fest.</p>
+          <p>Die Passung ist keine Qualitätsnote. Sie sagt nur, wie gut eine Schule zu den Wünschen passt, die ihr angegeben habt.</p>
+        </div>
+      </details>
+    </section>
+  </div>
+  <script>
+    import '../../scripts/bildungsweg.ts';
+  </script>
+</Base>

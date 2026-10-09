@@ -82,14 +82,14 @@ if (gemerkt) map.jumpTo({ center: [gemerkt.lon, gemerkt.lat], zoom: gemerkt.zoom
 map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
 const empty = { type: 'FeatureCollection', features: [] } as const;
-const COLOR = '#3b37d8';
+const COLOR = '#0d7a62';
 /** Punktfarbe je Schulkategorie (MapLibre-Ausdruck) */
 const KAT_AUSDRUCK = ['match', ['get', 'kat'], ...KAT_FARBEN_LISTE.flat(), katFarbe('sonst')] as unknown as string;
 
 /** Karte hell oder dunkel: die graue Grundkarte wird umgekehrt, Punkte und Beschriftungen bekommen passende Farben. */
 const FARBEN = {
-  hell: { punkt: COLOR, rand: '#fff', zahl: '#fff', text: '#161a2e', halo: 'rgba(255,255,255,0.95)', auswahl: '#3b37d8', auswahlText: '#2a26b8', auswahlHalo: 'rgba(255,255,255,0.97)' },
-  dunkel: { punkt: '#7c79ff', rand: '#0c0f1d', zahl: '#fff', text: '#eef0fa', halo: 'rgba(12,15,29,0.95)', auswahl: '#a3a1ff', auswahlText: '#c9c8ff', auswahlHalo: 'rgba(12,15,29,0.97)' },
+  hell: { punkt: COLOR, rand: '#fff', zahl: '#fff', text: '#13201c', halo: 'rgba(255,255,255,0.95)', auswahl: COLOR, auswahlText: '#075240', auswahlHalo: 'rgba(255,255,255,0.97)' },
+  dunkel: { punkt: '#3cc79f', rand: '#0b1311', zahl: '#052019', text: '#ecf3ef', halo: 'rgba(11,19,17,0.95)', auswahl: '#3cc79f', auswahlText: '#8be3c6', auswahlHalo: 'rgba(11,19,17,0.97)' },
 };
 let kartenDunkel = false;
 function kartenFarben() {
@@ -178,7 +178,7 @@ map.on('load', () => {
       'text-field': ['get', 'name'], 'text-font': ['Arial Bold'], 'text-size': 14, 'text-anchor': 'top', 'text-offset': [0, 1.5],
       'text-max-width': 10, 'text-allow-overlap': true, 'text-ignore-placement': true,
     },
-    paint: { 'text-color': '#2a26b8', 'text-halo-color': 'rgba(255,255,255,0.97)', 'text-halo-width': 2.2 },
+    paint: { 'text-color': '#075240', 'text-halo-color': 'rgba(255,255,255,0.97)', 'text-halo-width': 2.2 },
   });
 
   map.on('click', (e: MapMouseEvent) => {
@@ -883,20 +883,14 @@ function setzeSchulart(kat: string) {
   aktualisieren();
   heroKat = null;
 }
-sucheAnbinden({
-  input: heroQ,
-  list: $('heroSuggest'),
-  index: () => state.index,
-  onPick: (v) => {
-    heroZu();
-    qInput.value = heroQ.value;
-    vorschlagGewaehlt(v);
-  },
-});
-$('heroForm').addEventListener('submit', (e) => e.preventDefault());
-$('heroLocate').addEventListener('click', () => {
-  heroZu();
-  void zumStandort();
+// Die Adresse geht an den Bildungsweg-Planer (nicht in die Adresszeile, nur für diesen Tab)
+$('heroForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  try {
+    if (heroQ.value.trim()) sessionStorage.setItem('schulfinder.bw-adresse', heroQ.value.trim());
+    sessionStorage.setItem('schulfinder.intro', '1');
+  } catch { /* egal */ }
+  location.href = `${base}bildungsweg/`;
 });
 $('heroKarte').addEventListener('click', heroZu);
 $('heroSkip').addEventListener('click', heroZu);
@@ -908,7 +902,7 @@ hero.querySelectorAll<HTMLButtonElement>('.hero-kat').forEach((b) =>
   }),
 );
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && !hero.hidden && $('heroSuggest').hidden) heroZu();
+  if (e.key === 'Escape' && !hero.hidden) heroZu();
 });
 
 /* ---------- Start ---------- */

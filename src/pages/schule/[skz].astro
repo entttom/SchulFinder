@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { kern, details, uebertritte, uebertritteKlein, ergebnisse } from '../../lib/data';
+import { kern, details, uebertritte, uebertritteKlein, ergebnisse, tdot, type TdotTermin } from '../../lib/data';
+import { stroeme, stroemeSvg } from '../../lib/stroeme';
 import { adresse, bundeslandOf, katFarbe, klassengroesse, maedchenAnteil, stufeLabel, hatStandort, drittelImSatz, drittelKurz, HINWEIS_AUSSCHNITT, type Schule, type Uebertritt, type Drittel } from '../../lib/types';
 import { fmtNum } from '../../lib/geo';
 import { profilOf, profilLabel } from '../../lib/profil';
@@ -13,6 +14,7 @@ export function getStaticPaths() {
   const ue = uebertritte();
   const klein = uebertritteKlein();
   const erg = ergebnisse();
+  const td = tdot().schulen;
   // { stufe: [skz] } -> { stufe: [Schule] }, nur bekannte Schulen
   const alsSchulen = (m: Record<string, string[]> | undefined) =>
     Object.fromEntries(Object.entries(m ?? {}).map(([typ, ids]) => [typ, ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))]));
@@ -33,15 +35,16 @@ export function getStaticPaths() {
       zu: (ue.zu[s.skz] ?? []).flatMap((u) => (byId.has(u[0]) ? [{ u, ziel: byId.get(u[0])! }] : [])),
       kleinAus: alsSchulen(klein.aus[s.skz]),
       kleinZu: alsSchulen(klein.zu[s.skz]),
+      termine: td[s.skz] ?? [],
     },
   }));
 }
 
 type Zeile = { u: Uebertritt; ziel: Schule };
-const { s, detail, kategorie, schuljahr, aus, zu, kleinAus, kleinZu, ergebnis, zyklus, volksschule } = Astro.props as {
+const { s, detail, kategorie, schuljahr, aus, zu, kleinAus, kleinZu, ergebnis, zyklus, volksschule, termine } = Astro.props as {
   s: Schule; detail: any; kategorie: string; schuljahr: string; aus: Zeile[]; zu: Zeile[];
   kleinAus: Record<string, Schule[]>; kleinZu: Record<string, Schule[]>;
-  ergebnis: [Drittel | null, Drittel | null] | null; zyklus: string; volksschule: boolean;
+  ergebnis: [Drittel | null, Drittel | null] | null; zyklus: string; volksschule: boolean; termine: TdotTermin[];
 };
 const faecher = ergebnis ? ([['Deutsch (Lesen)', ergebnis[0]], ['Mathematik', ergebnis[1]]] as [string, Drittel | null][]) : [];
 const vorhanden = faecher.filter(([, d]) => d);
@@ -79,6 +82,15 @@ const gruppiere = (rows: Zeile[], klein: Record<string, Schule[]>): Gruppe[] => 
   });
 };
 const ausG = gruppiere(aus, kleinAus);
+// Übertritts-Ströme als Grafik: je Zielschule über alle Schulstufen zusammengefasst
+const jeZiel = new Map<string, { ziel: Schule; n: number }>();
+for (const r of aus) jeZiel.set(r.ziel.skz, { ziel: r.ziel, n: (jeZiel.get(r.ziel.skz)?.n ?? 0) + r.u[1] });
+const stromSvg = jeZiel.size ? stroemeSvg(s.name.length > 34 ? `${s.name.slice(0, 33)}…` : s.name, stroeme([...jeZiel.values()], (z) => `${base}schule/${z.skz}/`, s.skz)) : '';
+// Tage der offenen Tür: kommende Termine, sonst der letzte als Anhaltspunkt
+const heute = new Date().toISOString().slice(0, 10);
+const kommend = termine.filter((t) => t.d >= heute);
+const tdotZeigen = kommend.length ? kommend.slice(0, 3) : termine.slice(-1);
+const fmtTag = (d: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat('de-AT', { ...o, timeZone: 'UTC' }).format(new Date(`${d}T00:00:00Z`));
 const zuG = gruppiere(zu, kleinZu);
 
 const klasse = klassengroesse(s);
@@ -183,9 +195,27 @@ const bl = bundeslandOf(s);
       </section>
     )}
 
+    {tdotZeigen.length > 0 && (
+      <section>
+        <h2>Tag der offenen Tür</h2>
+        <div class="d-tdot">
+          {tdotZeigen.map((t) => (
+            <div class={`d-tdot-item${kommend.length ? '' : ' alt'}`}>
+              <span class="d-tdot-datum"><b>{fmtTag(t.d, { day: 'numeric' })}</b><small>{fmtTag(t.d, { month: 'short' })}</small></span>
+              <div>
+                <p><b>{fmtTag(t.d, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</b>{t.z ? `, ${t.z} Uhr` : ''}</p>
+                <p class="muted">{kommend.length ? 'Laut Website der Schule, bitte vorher prüfen.' : 'Letzter gefundener Termin. Der nächste ist vermutlich um dieselbe Zeit.'} <a href={t.q} target="_blank" rel="noopener">Quelle</a></p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    )}
+
     {(ausG.length > 0 || zuG.length > 0) && (
       <section>
         <h2>Übertritte</h2>
+        {stromSvg && <div class="d-stroeme" set:html={stromSvg} />}
         <p class="muted">Wohin wechseln die Kinder nach dieser Schule, und woher kommen sie? Zusammengefasst nach Schulart des Ziels. Wechsel von höchstens 6 Kindern je Zielschule gibt die Statistik Austria aus Datenschutzgründen nicht einzeln an. Sie stehen als „≤ 6“ in den Listen und sind in den Prozentwerten nicht enthalten, die Prozentwerte zeigen also nur die größeren Wechsel.</p>
         {ausG.map((g) => <UebertrittBlock prefix="Abgänge" g={g} base={base} />)}
         {zuG.map((g) => <UebertrittBlock prefix="Zugänge" g={g} base={base} />)}

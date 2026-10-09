@@ -80,8 +80,8 @@ export const fmtKurz = (kat: string) => KURZ[kat] ?? '·';
 
 /** Farbe je Schulkategorie: Punkte auf der Karte, Kürzel in Listen, Filter-Chips, Kopf der Detailseite. */
 const KAT_FARBEN: Record<string, string> = {
-  vs: '#f0862a', ms: '#0ea47a', ahs: '#4a55e8', ps: '#0f9fb8', bs: '#7a6a58', bmhs: '#a43fd0',
-  ss: '#e2457f', lf: '#6aa516', gk: '#e5484d', ph: '#6b3fd4', musik: '#c2367a', sonst: '#7d8396',
+  vs: '#ee8a1c', ms: '#2f86e8', ahs: '#7a58e6', ps: '#0f9fb8', bs: '#8a735c', bmhs: '#d9468f',
+  ss: '#e5485f', lf: '#5a9e26', gk: '#d4483f', ph: '#5b47c9', musik: '#b8337a', sonst: '#7d8b86',
 };
 export const katFarbe = (kat: string) => KAT_FARBEN[kat] ?? KAT_FARBEN.sonst;
 export const KAT_FARBEN_LISTE = Object.entries(KAT_FARBEN);

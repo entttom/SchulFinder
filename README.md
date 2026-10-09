@@ -24,6 +24,19 @@ Gib einen Ort oder einen Schulnamen ein, oder tippe auf das Standort-Symbol, dan
 
 [Jetzt auf der Karte suchen](https://entttom.github.io/SchulFinder/)
 
+### Bildungsweg planen (neu)
+
+Gib eure Adresse ein, sag, wo euer Kind gerade steht, welcher Abschluss euch vorschwebt und was euch wichtig ist (kurzer oder sicherer Schulweg, Öffis, Freunde aus der Nachbarschaft, kleine Klassen, kein Schulgeld). SchulFinder baut daraus realistische Wege von der Volksschule bis zu Matura oder Lehre:
+
+- **Echte Geh- und Radzeiten** aus OpenStreetMap, der Schulweg wird auf der Karte abgespielt
+- **Schulweg-Check:** Wie oft quert der Fußweg eine Hauptstraße?
+- **Echte Übertritte** als Grafik: Wohin wechseln die Kinder einer Schule wirklich?
+- **Kinder aus eurer Nachbarschaft** an jeder Schule (500-m-Zellen der Statistik Austria)
+- **Tage der offenen Tür**, automatisch auf den Websites der Schulen gefunden
+- **Zeitachse mit Fristen** (Schuleinschreibung, Anmeldung nach der 4. und 8. Schulstufe) als Kalenderdatei
+
+[Bildungsweg planen](https://entttom.github.io/SchulFinder/bildungsweg/)
+
 ### Schulen in der Umgebung vergleichen
 
 Tippe auf **„Umgebung vergleichen“** und du bekommst alle Schulen im gewählten Umkreis (zum Beispiel 2 km) als Liste, sortierbar nach Entfernung, Schülerzahl oder Klassengröße. Hake bis zu sechs Schulen an und sieh sie **nebeneinander** in einer Tabelle.
@@ -79,7 +92,7 @@ Du willst wissen, an welchen Schulen in deiner Gegend wirklich Kinder aus deiner
 ## Gut zu wissen
 
 - **Keine Anmeldung, keine Werbung, keine Statistik- oder Tracking-Dienste.** SchulFinder speichert nichts über dich, die Suche läuft in deinem Browser.
-- **Adressen:** Wenn du eine ganze Adresse eintippst (zum Beispiel beim Einzugsgebiet), wird sie nur für die Ortssuche an [Nominatim (OpenStreetMap)](https://nominatim.openstreetmap.org) geschickt. Mit dem Standort-Knopf bleibt dein Standort auf deinem Gerät.
+- **Adressen:** Wenn du eine ganze Adresse eintippst (zum Beispiel beim Einzugsgebiet), wird sie nur für die Ortssuche an [Nominatim (OpenStreetMap)](https://nominatim.openstreetmap.org) geschickt. Mit dem Standort-Knopf bleibt dein Standort auf deinem Gerät. Beim Bildungsweg gehen zusätzlich die Koordinaten an das Routing der FOSSGIS (Geh- und Radzeiten) und als Kartenausschnitt an die Statistik Austria (Kinder aus der Nachbarschaft). Ein geteilter Link enthält nur den auf etwa 100 m gerundeten Ort, nicht die Adresse.
 - **Schulmittelwerte** (Deutsch Lesen und Mathematik in der Volksschule) zeigt SchulFinder als Einordnung im Vergleich zu ähnlichen Schulen: oberes, mittleres oder unteres Drittel. Sie sind **kein Ranking** und sagen nur einen Ausschnitt über eine Schule. Eine Schule besichtigen und mit den Lehrkräften sprechen ersetzt das nicht.
 - **Die Daten** werden einmal im Monat automatisch aktualisiert. Aktuell gilt das Schuljahr 2024/25. Es kann vorkommen, dass sich Kontaktdaten oder Zahlen inzwischen geändert haben. Bitte frag im Zweifel bei der Schule nach.
 
@@ -90,6 +103,8 @@ Du willst wissen, an welchen Schulen in deiner Gegend wirklich Kinder aus deiner
 | [Bildungskompass](https://www.bildungskompass.gv.at) | Name, Schulart, Erhalter, Kontakt, Chancenbonus, Schulmittelwerte der Volksschulen |
 | [Statistik Austria, Schulatlas](https://www.statistik.at/atlas/schulen/) | Standort, Klassen, Schüler, Übertritte, Einzugsgebiete |
 | [basemap.at](https://basemap.at) | Grundkarte |
+| [OpenStreetMap](https://www.openstreetmap.org/copyright): Routing der [FOSSGIS](https://routing.openstreetmap.de) (OSRM, Valhalla), Kacheln von [OpenFreeMap](https://openfreemap.org) | Geh- und Radzeiten, Haltestellen, Hauptstraßen am Schulweg (Bildungsweg) |
+| Websites der Schulen | Tage der offenen Tür (automatisch gefunden, ohne Gewähr) |
 
 Jede Seite von SchulFinder nennt ihre Quellen. SchulFinder ist ein privates Projekt und nicht mit den Schulen, dem Bildungsministerium oder Statistik Austria verbunden.
 
@@ -115,6 +130,7 @@ npm install
 npm run data   # lädt und verknüpft die Quellen nach public/data/ (Übertritte beim ersten Mal ca. 8 Minuten)
 npm run dev    # http://localhost:4321
 npm test       # Tests der Zusammenführung
+npm run tdot   # sucht Tage der offenen Tür auf den Schulwebsites (optional, ca. 10 Minuten)
 npm run build  # erzeugt dist/ (eine Seite pro Schule)
 ```
 

@@ -124,6 +124,8 @@ export function sucheAnbinden(opts: {
   form?: HTMLElement;
   index: () => SuchIndex | undefined;
   onPick: (v: Vorschlag) => void;
+  /** false: keinen "Adresse suchen"-Vorschlag anbieten (z. B. reine Schulsuche) */
+  adresse?: boolean;
 }) {
   const { input, list } = opts;
   let items: Vorschlag[] = [];
@@ -143,7 +145,7 @@ export function sucheAnbinden(opts: {
   };
   const render = () => {
     items = opts.index()?.vorschlaege(input.value) ?? [];
-    const adr = adressVorschlag(input.value);
+    const adr = opts.adresse === false ? null : adressVorschlag(input.value);
     if (adr) {
       // Sieht der Text nach einer Adresse aus (Straße mit Hausnummer), steht der Vorschlag oben, sonst unten
       if (/[a-zäöüß]\D*\d/i.test(adr.text)) items.unshift(adr);
