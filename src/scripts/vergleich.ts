@@ -355,7 +355,16 @@ async function zeigeVergleich() {
     loadErgebnisse().catch(() => ({ zyklus: '', daten: {} as Record<string, [null, null]> })),
   ]);
   const istVs = (s: Schule) => s.kat === 'vs' || (s.weitere ?? []).includes('vs');
-  const ergebnisZelle = (s: Schule, i: 0 | 1) => (erg.daten[s.skz] ? drittelKurz(erg.daten[s.skz][i]) : istVs(s) ? 'nicht verfügbar' : '–');
+  const ergebnisZelle = (s: Schule, i: 0 | 1): Node | string => {
+    const d = erg.daten[s.skz]?.[i];
+    if (!d) return erg.daten[s.skz] || istVs(s) ? 'nicht verfügbar' : '–';
+    return el(
+      'div',
+      { class: 'cmp-erg' },
+      el('span', { class: 'erg-skala', role: 'img', ariaLabel: drittelKurz(d) }, ...(['u', 'm', 'o'] as const).map((k) => el('i', { class: d === k ? 'an' : '' }))),
+      el('span', { class: 'erg-wert', textContent: drittelKurz(d) }),
+    );
+  };
 
   const link = (href: string, text: string, ext = false) => {
     const a = el('a', { href, textContent: text });
@@ -365,7 +374,6 @@ async function zeigeVergleich() {
   const ZEILEN: { label: string; cell: (s: Schule) => Node | string }[] = [
     { label: 'Schulart', cell: (s) => det[s.skz]?.art ?? state.daten!.kategorien.find((k) => k.id === s.kat)?.label ?? '–' },
     { label: 'Erhalter', cell: (s) => (s.privat ? 'privat' : '') + (s.privat && s.erhalter ? ', ' : '') + (s.erhalter ?? (s.privat ? '' : 'öffentlich')) },
-    { label: 'Adresse', cell: (s) => adresse(s) || '–' },
     { label: 'Entfernung', cell: (s) => (state.center && hatStandort(s) ? fmtDist(distanceM(state.center.lon, state.center.lat, s.lon, s.lat)) : '–') },
     { label: 'Schüler', cell: (s) => fmtNum(s.schueler) },
     { label: 'Klassen', cell: (s) => fmtNum(s.klassen) },
@@ -392,7 +400,7 @@ async function zeigeVergleich() {
   const table = el('table', { class: 'cmp-table' });
   const head = el('tr', {}, el('th', { scope: 'col', class: 'corner' }));
   for (const s of schulen) {
-    head.append(el('th', { scope: 'col' }, link(`${base}schule/${s.skz}/`, s.name)));
+    head.append(el('th', { scope: 'col' }, link(`${base}schule/${s.skz}/`, s.name), el('span', { class: 'cmp-adr', textContent: adresse(s) })));
   }
   table.append(el('thead', {}, head));
   const tb = el('tbody');

@@ -276,12 +276,14 @@ dialog.cmp {
   background: var(--bg); color: var(--text);
 }
 dialog.cmp::backdrop { background: rgb(0 0 0 / 0.5); }
-.cmp-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 3; }
+dialog.cmp[open] { display: flex; flex-direction: column; overflow: hidden; }
+.cmp-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 3; flex: none; }
 .cmp-head h2 { margin: 0; font-size: 18px; }
-.cmp-scroll { overflow: auto; max-height: calc(100dvh - 62px); padding-bottom: env(safe-area-inset-bottom); }
+.cmp-scroll { overflow: auto; flex: 1 1 auto; min-height: 0; padding-bottom: env(safe-area-inset-bottom); }
 .cmp-table { border-collapse: separate; border-spacing: 0; font-size: 14px; min-width: 100%; }
 .cmp-table th, .cmp-table td { padding: 10px 12px; vertical-align: top; text-align: left; border-bottom: 1px solid var(--line); min-width: 168px; }
 .cmp-table thead th { position: sticky; top: 0; background: var(--bg); z-index: 2; font-weight: 600; font-size: 15px; }
+.cmp-adr { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--text-2); }
 .cmp-table tbody th[scope='row'], .cmp-table thead .corner { position: sticky; left: 0; background: var(--bg-2); min-width: 112px; max-width: 112px; font-weight: 500; color: var(--text-2); z-index: 1; }
 .cmp-table thead .corner { z-index: 4; }
 .cmp-ue { list-style: none; margin: 0; padding: 0; }
@@ -289,6 +291,10 @@ dialog.cmp::backdrop { background: rgb(0 0 0 / 0.5); }
 .cmp-ue .ue-h { font-size: 12px; color: var(--text-2); margin-top: 4px; }
 .cmp-ue small { display: block; color: var(--text-2); }
 dialog.cmp:focus { outline: none; }
+.cmp-erg { display: grid; gap: 5px; }
+.cmp-erg .erg-skala { gap: 3px; }
+.cmp-erg .erg-skala i { height: 8px; border-radius: 4px; }
+.cmp-erg .erg-wert { font-size: 13px; color: var(--text); font-weight: 500; }
 .cmp-kontakt { display: grid; gap: 4px; overflow-wrap: anywhere; }
 .cmp-scroll .credit { border: 0; }
 
@@ -312,7 +318,6 @@ dialog.cmp:focus { outline: none; }
   .vg-row .cell .cl { display: none; }
   .vg-row .cell .cv { font-weight: 400; }
   dialog.cmp { width: min(1100px, calc(100vw - 48px)); height: auto; max-height: 90dvh; margin: auto; border-radius: 16px; border: 1px solid var(--line); }
-  .cmp-scroll { max-height: calc(90dvh - 62px); }
 }
 
 /* ---------- Vergleich: Filter-Fenster, kompakte Zeilen (Handy) ---------- */
@@ -387,6 +392,7 @@ dialog.cmp:focus { outline: none; }
 
   .cmp-table th, .cmp-table td { min-width: 132px; padding: 8px 10px; font-size: 13.5px; }
   .cmp-table thead th { font-size: 14px; }
+  .cmp-adr { font-size: 12px; }
   .cmp-table tbody th[scope='row'], .cmp-table thead .corner { min-width: 80px; max-width: 80px; font-size: 12px; padding-left: 8px; padding-right: 6px; }
 }
 
