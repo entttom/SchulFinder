@@ -1,6 +1,6 @@
 # SchulFinder – Schulen in Österreich finden und vergleichen
 
-### 👉 [**Jetzt ausprobieren: entttom.github.io/SchulFinder**](https://entttom.github.io/SchulFinder/)
+### [**Jetzt ausprobieren: entttom.github.io/SchulFinder**](https://entttom.github.io/SchulFinder/)
 
 Kostenlos, ohne Anmeldung, ohne App. Funktioniert am Handy genauso wie am Computer.
 
@@ -8,13 +8,13 @@ Kostenlos, ohne Anmeldung, ohne App. Funktioniert am Handy genauso wie am Comput
 
 Du suchst eine Volksschule für dein Kind, eine Mittelschule oder ein Gymnasium in deiner Nähe? SchulFinder zeigt dir alle rund 6.000 Schulen in Österreich auf einer Karte und hilft dir, Schulen in deiner Umgebung nebeneinander zu vergleichen.
 
-**[→ Zur Karte](https://entttom.github.io/SchulFinder/)**
+**[Zur Karte](https://entttom.github.io/SchulFinder/)**
 
 ---
 
 ## Was kannst du damit machen?
 
-### 🗺️ Schulen auf der Karte finden
+### Schulen auf der Karte finden
 
 Gib einen Ort oder einen Schulnamen ein, oder tippe auf das Standort-Symbol, dann springt die Karte zu dir. Mit den Filtern oben grenzt du auf Volksschulen, Mittelschulen oder Gymnasien ein. Die Liste unter der Karte zeigt, was gerade im Kartenausschnitt liegt.
 
@@ -22,9 +22,9 @@ Gib einen Ort oder einen Schulnamen ein, oder tippe auf das Standort-Symbol, dan
 
 **Beispiel:** Suche nach „Linz“, tippe auf eine Schule in der Liste und du siehst Adresse, Schülerzahl, Klassenzahl und Schulerhalter.
 
-[Jetzt auf der Karte suchen →](https://entttom.github.io/SchulFinder/)
+[Jetzt auf der Karte suchen](https://entttom.github.io/SchulFinder/)
 
-### ⚖️ Schulen in der Umgebung vergleichen
+### Schulen in der Umgebung vergleichen
 
 Tippe auf **„Umgebung vergleichen“** und du bekommst alle Schulen im gewählten Umkreis (zum Beispiel 2 km) als Liste, sortierbar nach Entfernung, Schülerzahl oder Klassengröße. Hake bis zu sechs Schulen an und sieh sie **nebeneinander** in einer Tabelle.
 
@@ -45,7 +45,7 @@ Den Vergleich kannst du **als Link teilen**, zum Beispiel mit deinem Partner ode
 
 **Probier es aus:** [Volksschulen im Umkreis von 2 km um Linz, drei davon nebeneinander](https://entttom.github.io/SchulFinder/vergleich/?lon=14.28580&lat=48.30690&o=Linz&r=2&k=vs&sel=401031,401061,401071&cmp=1)
 
-### 🏫 Eine Seite pro Schule
+### Eine Seite pro Schule
 
 Zu jeder Schule gibt es eine eigene Seite mit Kontakt (Anrufen, E-Mail, Website, Route), Kennzahlen, Schulmittelwerten der Volksschulen und den Übertritten in weiterführende Schulen.
 
@@ -53,13 +53,13 @@ Zu jeder Schule gibt es eine eigene Seite mit Kontakt (Anrufen, E-Mail, Website,
 
 **Beispiel:** [VS 4 Mozartschule in Linz](https://entttom.github.io/SchulFinder/schule/401031/)
 
-### 📍 Einzugsgebiet an deiner Adresse
+### Einzugsgebiet an deiner Adresse
 
 Du willst wissen, an welchen Schulen in deiner Gegend wirklich Kinder aus deiner Nachbarschaft lernen? Gib deine Adresse ein, wähle die Schulart und SchulFinder zeigt dir, wie viele Kinder jeder Schule in deiner Wohngegend (einer 500-m-Zelle) wohnen.
 
 <img src="docs/screenshots/einzugsgebiet-mobil.png" alt="Einzugsgebiet: Schulen, deren Kinder in der eigenen Zelle wohnen" width="260">
 
-[Einzugsgebiet an meiner Adresse prüfen →](https://entttom.github.io/SchulFinder/einzugsgebiet/)
+[Einzugsgebiet an meiner Adresse prüfen](https://entttom.github.io/SchulFinder/einzugsgebiet/)
 
 > Das ist **kein Schulsprengel** und kein Anspruch auf einen Platz. Es zeigt nur, aus welchen Gegenden die Kinder der Schule im aktuellen Schuljahr kommen. Zellen mit weniger als 3 Kindern werden zusammengefasst, damit niemand erkennbar wird.
 
@@ -99,7 +99,7 @@ Wenn dir etwas auffällt, zum Beispiel eine falsche Angabe oder ein Wunsch für 
 
 ---
 
-### 👉 [Jetzt SchulFinder öffnen](https://entttom.github.io/SchulFinder/)
+### [Jetzt SchulFinder öffnen](https://entttom.github.io/SchulFinder/)
 
 ---
 
