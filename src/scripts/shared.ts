@@ -1,6 +1,6 @@
 import type { Daten, Detail, Ergebnisse, Kategorie, Schule, Uebertritte } from '../lib/types';
 import { hatKategorie } from '../lib/types';
-import type { SuchIndex, Vorschlag } from '../lib/search';
+import type { AdressTreffer, SuchIndex, Vorschlag } from '../lib/search';
 
 export const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
@@ -63,7 +63,8 @@ export function filterFromParams(p: URLSearchParams, kategorien: Kategorie[]): F
 
 /** Baut die Filter-Chips (Schulart mehrfach, Erhalter einfach, Bonus-Kennzeichen). */
 export function baueFilterChips(container: HTMLElement, kategorien: Kategorie[], f: FilterState, onChange: () => void) {
-  container.replaceChildren();
+  // Elemente mit data-keep (z. B. ein Link vor den Filtern) bleiben stehen
+  container.querySelectorAll(':scope > :not([data-keep])').forEach((n) => n.remove());
   const zweiZeilen = container.dataset.rows === '2';
   const zeileA = zweiZeilen ? el('div', { class: 'chips scroll' }) : container;
   const zeileB = zweiZeilen ? el('div', { class: 'chips wrap' }) : container;
@@ -107,6 +108,12 @@ export function baueFilterChips(container: HTMLElement, kategorien: Kategorie[],
 }
 
 /* ---------- Suchbox mit Vorschlägen ---------- */
+function adressVorschlag(eingabe: string): AdressTreffer | null {
+  const text = eingabe.trim();
+  if (text.length < 3 || /^\d+$/.test(text)) return null;
+  return { kind: 'adresse', label: `Adresse suchen: ${text}`, sub: 'Der Text wird dafür an OpenStreetMap gesendet', text };
+}
+
 export function sucheAnbinden(opts: {
   input: HTMLInputElement;
   list: HTMLElement;
@@ -127,11 +134,17 @@ export function sucheAnbinden(opts: {
     if (!v) return;
     verbergen();
     input.blur();
-    input.value = v.kind === 'schule' ? `${v.label}, ${v.schule.gemeinde ?? v.schule.ort ?? ''}`.replace(/, $/, '') : v.label;
+    input.value = v.kind === 'adresse' ? v.text : v.kind === 'schule' ? `${v.label}, ${v.schule.gemeinde ?? v.schule.ort ?? ''}`.replace(/, $/, '') : v.label;
     opts.onPick(v);
   };
   const render = () => {
     items = opts.index()?.vorschlaege(input.value) ?? [];
+    const adr = adressVorschlag(input.value);
+    if (adr) {
+      // Sieht der Text nach einer Adresse aus (Straße mit Hausnummer), steht der Vorschlag oben, sonst unten
+      if (/[a-zäöüß]\D*\d/i.test(adr.text)) items.unshift(adr);
+      else items.push(adr);
+    }
     aktiv = -1;
     list.hidden = items.length === 0;
     input.setAttribute('aria-expanded', String(items.length > 0));

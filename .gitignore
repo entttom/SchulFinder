@@ -8,3 +8,4 @@ dist/
 .cache/
 public/data/
 public/maplibre/
+build-data/

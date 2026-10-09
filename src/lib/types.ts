@@ -42,7 +42,9 @@ export type Detail = {
 
 /** [Schulkennzahl der Gegenseite, Anzahl, Schulstufen-Code] */
 export type Uebertritt = [string, number, string];
-export type Uebertritte = { aus: Record<string, Uebertritt[]>; zu: Record<string, Uebertritt[]> };
+/** Anzahl Zielschulen (bzw. Herkunftsschulen) mit höchstens 6 Kindern, je Schulstufen-Code. Die Zahl der Kinder gibt die Statistik nicht an. */
+export type KleineWechsel = Record<string, Record<string, number>>;
+export type Uebertritte = { aus: Record<string, Uebertritt[]>; zu: Record<string, Uebertritt[]>; kleinAus?: KleineWechsel; kleinZu?: KleineWechsel };
 
 export const BUNDESLAENDER: Record<string, string> = {
   '1': 'Burgenland', '2': 'Kärnten', '3': 'Niederösterreich', '4': 'Oberösterreich', '5': 'Salzburg',
@@ -76,7 +78,7 @@ export const fmtKurz = (kat: string) => KURZ[kat] ?? '·';
 
 /** Schulstufen-Code der Abgangsschule im Schulatlas -> Beschriftung. */
 export const stufeLabel = (code: string) =>
-  code === '01' ? 'Nach der 4. Schulstufe' : ['02a', '05', '05a'].includes(code) ? 'Nach der 8. Schulstufe' : 'Weitere Abgänge';
+  code === '01' ? 'Nach der 4. Schulstufe' : ['02a', '05', '05a'].includes(code) ? 'Nach der 8. Schulstufe' : 'Bei sonstigen Wechseln';
 
 /** Kurzer Name für Kartenbeschriftungen: Zusätze nach Gedankenstrich, Doppelpunkt, Klammer oder Anführungszeichen entfallen. */
 export function kurzName(name: string, max = 32) {

@@ -11,6 +11,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { getJson, postJson, throttled } from './lib/net.mjs';
 import { mergeSources, invertUebertritte, splitKernDetail, KATEGORIEN } from './lib/merge.mjs';
 import { parseKpis, hatVolksschule } from './lib/ergebnisse.mjs';
+import { parseAbgaenge, invertKlein, zaehlePerStufe } from './lib/uebertritte.mjs';
 
 const args = new Set(process.argv.slice(2));
 const offline = args.has('--offline');
@@ -29,6 +30,7 @@ const MIT_UEBERTRITT = new Set(['VS', 'NMSH', 'HS', 'AHS', 'NMSA', 'SS', 'ASTAT'
 
 await mkdir('.cache', { recursive: true });
 await mkdir('public/data', { recursive: true });
+await mkdir('build-data', { recursive: true }); // nur für den Build, wird nicht veröffentlicht
 
 const readCache = async (name) => JSON.parse(await readFile(`.cache/${name}`, 'utf8'));
 const writeCache = (name, data) => writeFile(`.cache/${name}`, JSON.stringify(data));
@@ -84,7 +86,7 @@ if (withUebertritte) {
     .map((f) => f.properties)
     .filter((p) => MIT_UEBERTRITT.has(p.KARTO_TYP))
     .map((p) => String(p.SKZ))
-    .filter((skz) => offline === false && !(cache[skz] && now - cache[skz].t < MAX_AGE_MS));
+    .filter((skz) => offline === false && !(cache[skz]?.klein && now - cache[skz].t < MAX_AGE_MS)); // Einträge ohne "klein" stammen aus dem alten Format
 
   if (todo.length) {
     console.log(`Übertritte: ${todo.length} Schulen abzufragen (Budget ${MAX_MINUTES} min)`);
@@ -96,13 +98,7 @@ if (withUebertritte) {
       async (skz) => {
         try {
           const j = await getJson(wfs('ATLAS_SCHULE_UEBERTRITT_OUT_WFS', `&viewparams=skz:${skz}`), { retries: 2, timeoutMs: 30000 });
-          cache[skz] = {
-            t: Date.now(),
-            rows: j.features
-              .map((f) => f.properties)
-              .filter((p) => p.ANZAHL > 0 && String(p.SKZ_VJ) === skz)
-              .map((p) => [String(p.SKZ_LAUFEND), p.ANZAHL, p.IPUB2_TYP_VJ]),
-          };
+          cache[skz] = { t: Date.now(), ...parseAbgaenge(j.features, skz) };
         } catch {
           failed++;
         }
@@ -122,12 +118,22 @@ if (withUebertritte) {
 
   const known = new Set(schulen.map((s) => s.skz));
   const out = {};
+  const kleinAus = {};
   for (const [skz, v] of Object.entries(cache)) {
-    const rows = v.rows.filter(([ziel]) => known.has(ziel));
-    if (rows.length && known.has(skz)) out[skz] = rows.sort((a, b) => b[1] - a[1]);
+    if (!known.has(skz)) continue;
+    const rows = (v.rows ?? []).filter(([ziel]) => known.has(ziel));
+    if (rows.length) out[skz] = rows.sort((a, b) => b[1] - a[1]);
+    const klein = (v.klein ?? []).filter(([ziel]) => known.has(ziel));
+    if (klein.length) kleinAus[skz] = klein;
   }
-  await writeFile('public/data/uebertritte.json', JSON.stringify({ aus: out, zu: invertUebertritte(out) }));
-  console.log(`Übertritte: ${Object.keys(out).length} Schulen mit Abgängen`);
+  const kleinZu = invertKlein(kleinAus);
+  // Im Browser nur die Anzahl kleiner Wechsel, die Namen der Zielschulen nur für die Detailseiten beim Bauen
+  await writeFile(
+    'public/data/uebertritte.json',
+    JSON.stringify({ aus: out, zu: invertUebertritte(out), kleinAus: zaehlePerStufe(kleinAus), kleinZu: zaehlePerStufe(Object.fromEntries(Object.entries(kleinZu).map(([z, g]) => [z, Object.entries(g).flatMap(([typ, q]) => q.map((x) => [x, typ]))])) ) }),
+  );
+  await writeFile('build-data/uebertritte-klein.json', JSON.stringify({ aus: Object.fromEntries(Object.entries(kleinAus).map(([k, l]) => [k, l.reduce((m, [z, t]) => ((m[t] ??= []).push(z), m), {})])), zu: kleinZu }));
+  console.log(`Übertritte: ${Object.keys(out).length} Schulen mit ausgewiesenen Abgängen, ${Object.keys(kleinAus).length} mit kleinen Wechseln (je höchstens 6 Kinder)`);
 }
 
 /* ---------- Schulmittelwerte (Bildungsstandards) ---------- */

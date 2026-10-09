@@ -3,9 +3,12 @@ import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { type Daten, type Schule, adresse, fmtKurz, hatStandort, kurzName } from '../lib/types';
 import { distanceM, fmtDist, fmtNum } from '../lib/geo';
+import { einzugKennzahlen, einzugMoeglich, type EinzugKennzahlen } from '../lib/einzug';
 import { umschalten, istGewaehlt, beiAenderung, MAX_AUSWAHL } from './auswahl';
 import { ladeAnsicht, speichereAnsicht } from './ansicht';
 import { speichereOrt } from './ort';
+import { adresseSuchen } from '../lib/geocode';
+import { beiThemeWechsel, istDunkel } from './theme';
 import { SuchIndex } from '../lib/search';
 import {
   $, base, el, loadKern, baueFilterChips, neuerFilter, filterFromParams, filterToParams, passt,
@@ -60,7 +63,10 @@ const map = new maplibregl.Map({
         attribution: 'Grundkarte: <a href="https://basemap.at" target="_blank" rel="noopener">basemap.at</a>',
       },
     },
-    layers: [{ id: 'bm', type: 'raster', source: 'bm' }],
+    layers: [{
+      id: 'bm', type: 'raster', source: 'bm',
+      paint: { 'raster-brightness-min': istDunkel() ? 1 : 0, 'raster-brightness-max': istDunkel() ? 0.12 : 1 },
+    }],
   },
   ...(gemerkt
     ? { center: [gemerkt.lon, gemerkt.lat] as [number, number], zoom: gemerkt.zoom }
@@ -76,6 +82,35 @@ map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-ri
 
 const empty = { type: 'FeatureCollection', features: [] } as const;
 const COLOR = '#1f5fbf';
+
+/** Karte hell oder dunkel: die graue Grundkarte wird umgekehrt, Punkte und Beschriftungen bekommen passende Farben. */
+const FARBEN = {
+  hell: { punkt: COLOR, rand: '#fff', zahl: '#fff', text: '#14171f', halo: 'rgba(255,255,255,0.95)', auswahlText: '#b34100', auswahlHalo: 'rgba(255,255,255,0.97)' },
+  dunkel: { punkt: '#6ea2ff', rand: '#171a21', zahl: '#0b1220', text: '#eef0f4', halo: 'rgba(23,26,33,0.95)', auswahlText: '#ffa94d', auswahlHalo: 'rgba(23,26,33,0.97)' },
+};
+let kartenDunkel = false;
+function kartenFarben() {
+  const f = kartenDunkel ? FARBEN.dunkel : FARBEN.hell;
+  if (map.getLayer('bm')) {
+    map.setPaintProperty('bm', 'raster-brightness-min', kartenDunkel ? 1 : 0);
+    map.setPaintProperty('bm', 'raster-brightness-max', kartenDunkel ? 0.12 : 1);
+  }
+  if (!mapReady) return;
+  map.setPaintProperty('clusters', 'circle-color', f.punkt);
+  map.setPaintProperty('clusters', 'circle-stroke-color', f.rand);
+  map.setPaintProperty('cluster-count', 'text-color', f.zahl);
+  map.setPaintProperty('points', 'circle-color', f.punkt);
+  map.setPaintProperty('points', 'circle-stroke-color', f.rand);
+  map.setPaintProperty('labels', 'text-color', f.text);
+  map.setPaintProperty('labels', 'text-halo-color', f.halo);
+  map.setPaintProperty('sel-label', 'text-color', f.auswahlText);
+  map.setPaintProperty('sel-label', 'text-halo-color', f.auswahlHalo);
+}
+beiThemeWechsel((dunkel) => {
+  kartenDunkel = dunkel;
+  if (map.isStyleLoaded() || mapReady) kartenFarben();
+  else map.once('load', kartenFarben);
+});
 
 map.on('load', () => {
   map.addSource('schulen', { type: 'geojson', data: empty as never, cluster: true, clusterRadius: 48, clusterMaxZoom: 13 });
@@ -148,6 +183,7 @@ map.on('load', () => {
     map.on('mouseleave', id, () => (map.getCanvas().style.cursor = ''));
   }
   mapReady = true;
+  kartenFarben();
   aktualisieren();
   startAuswahl();
 });
@@ -191,6 +227,13 @@ function startAuswahl() {
   const mitDetails = url.get('d') === '1'; // vor select() lesen: select() schreibt die Adresse neu
   if (url.get('e') === '1') state.einzug = true;
   const gemerktSkz = ladeAnsicht()?.skz;
+  // Der Standort ist nach einem Besuch von Vergleich oder Details sonst weg, die Seite wird dabei neu geladen
+  const gemerkterStandort = ladeAnsicht()?.user;
+  if (gemerkterStandort) {
+    state.user = gemerkterStandort;
+    zeigeStandortMarker(gemerkterStandort);
+    aktualisieren(); // die Liste zeigt dann wieder Entfernungen
+  }
   if (skz && state.byId.has(skz)) {
     select(skz, 'jump');
     if (mitDetails) void setzeDetails(true, false);
@@ -204,7 +247,7 @@ function merkeAnsicht() {
   const c = map.getCenter();
   const p = new URLSearchParams();
   filterToParams(state.filter, p);
-  speichereAnsicht({ lon: c.lng, lat: c.lat, zoom: map.getZoom(), padding: map.getPadding(), filter: p.toString(), skz: state.selected?.skz ?? null });
+  speichereAnsicht({ lon: c.lng, lat: c.lat, zoom: map.getZoom(), padding: map.getPadding(), filter: p.toString(), skz: state.selected?.skz ?? null, user: state.user ?? undefined });
 }
 
 /* ---------- Filter und Quelle ---------- */
@@ -381,7 +424,6 @@ const EINZUG_STUFEN = [
   { farbe: '#f03b20', text: '12–19' },
   { farbe: '#bd0026', text: '20 und mehr' },
 ];
-const einzugMoeglich = (s: Schule) => s.schueler !== undefined && s.kat !== 'gk' && s.kat !== 'bs';
 const einzugUrl = (skz: string) =>
   'https://www.statistik.at/gs-atlas/ATLAS_SCHULE/wms?service=WMS&version=1.1.1&request=GetMap' +
   `&layers=ATLAS_SCHULE:ATLAS_SCHULE_WOHNORT&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}&viewparams=SKZ:${skz}`;
@@ -391,6 +433,31 @@ function entferneEinzug() {
   if (map.getSource('einzug')) map.removeSource('einzug');
 }
 
+// auf 5 % gerundet: die Klassen der Karte erlauben keine genauere Angabe
+const fmtProzent = (anteil: number) => `${Math.max(5, Math.round(anteil * 20) * 5)} %`;
+
+function einzugText(k: EinzugKennzahlen) {
+  const rest = `Die Hälfte wohnt innerhalb von ${fmtDist(k.medianM)}, 90 % innerhalb von ${fmtDist(k.p90M)}.`;
+  const weit = `${k.anteilUeber2km < 0.03 ? 'Weniger als 3 %' : `Etwa ${fmtProzent(k.anteilUeber2km)}`} der Kinder wohnen weiter als 2 km entfernt.`;
+  const hinweis = k.angeschnitten ? ' Das Gebiet reicht über den ausgewerteten Ausschnitt hinaus.' : '';
+  return `${weit} ${rest}${hinweis}`;
+}
+
+/** Entfernungen aus den Farbklassen der Kacheln, nur eine Näherung (Klassenmitten). */
+function zeigeEinzugKennzahlen(s: Schule, box: HTMLElement | null | undefined) {
+  if (!box || s.lon === undefined || s.lat === undefined) return;
+  box.textContent = 'Entfernungen werden berechnet …';
+  einzugKennzahlen(s.skz, s.lon, s.lat, s.schueler)
+    .then((k) => {
+      if (state.selected?.skz !== s.skz) return;
+      box.textContent = k ? einzugText(k) : 'Für diese Schule liegen keine Wohnortdaten vor.';
+      if (k) box.append(el('small', { textContent: 'Näherung aus den Farbklassen der Karte, nicht aus Einzelwerten.' }));
+    })
+    .catch(() => {
+      if (state.selected?.skz === s.skz) box.textContent = 'Die Entfernungen konnten nicht berechnet werden.';
+    });
+}
+
 function aktualisiereEinzug() {
   const s = state.selected;
   const an = state.einzug && s && einzugMoeglich(s);
@@ -398,6 +465,7 @@ function aktualisiereEinzug() {
   const legende = cardEl.querySelector<HTMLElement>('.einzug-legende');
   if (legende) legende.hidden = !an;
   if (!an || !s) return entferneEinzug();
+  zeigeEinzugKennzahlen(s, legende?.querySelector<HTMLElement>('.el-kennzahlen'));
   const src = map.getSource('einzug') as maplibregl.RasterTileSource | undefined;
   if (src) src.setTiles([einzugUrl(s.skz)]);
   else {
@@ -422,6 +490,7 @@ function baueEinzugsteil(s: Schule) {
     { class: 'einzug-legende' },
     el('div', { class: 'el-titel', textContent: 'Wohnort der Kinder, Anzahl pro 500-m-Zelle' }),
     el('div', { class: 'el-stufen' }, ...EINZUG_STUFEN.map((x) => el('span', {}, el('i', { style: `background:${x.farbe}` }), x.text))),
+    el('div', { class: 'el-kennzahlen' }),
   );
   legende.hidden = !state.einzug;
   return [chip, legende];
@@ -624,6 +693,7 @@ sucheAnbinden({
   list: $('suggest'),
   index: () => state.index,
   onPick: (v) => {
+    if (v.kind === 'adresse') return void zurAdresse(v.text);
     deselect();
     if (v.kind === 'schule') {
       if (hatStandort(v.schule)) select(v.schule.skz, true);
@@ -640,6 +710,37 @@ sucheAnbinden({
 $('searchForm').addEventListener('submit', (e) => e.preventDefault());
 
 let meMarker: maplibregl.Marker | null = null;
+function zeigeStandortMarker(p: { lon: number; lat: number }) {
+  meMarker?.remove();
+  meMarker = new maplibregl.Marker({ element: el('div', { class: 'me-dot' }) }).setLngLat([p.lon, p.lat]).addTo(map);
+}
+let adressLauf = 0;
+/** Eigene Adresse suchen: Punkt auf die Karte, die Liste zeigt dann die nächsten Schulen. */
+async function zurAdresse(text: string) {
+  const lauf = ++adressLauf;
+  countEl.textContent = 'Adresse wird gesucht …';
+  const fehler = (msg: string, kurz: string) => {
+    countEl.textContent = kurz;
+    listEl.replaceChildren(el('li', { class: 'empty', textContent: msg }));
+    if (sheet.dataset.state === 'min') setSheet('peek');
+  };
+  let t;
+  try {
+    t = await adresseSuchen(text);
+  } catch {
+    if (lauf === adressLauf) fehler('Die Adresssuche ist gerade nicht erreichbar. Versuche es später noch einmal.', 'Adresse nicht erreichbar');
+    return;
+  }
+  if (lauf !== adressLauf) return;
+  if (!t) return fehler('Diese Adresse wurde nicht gefunden. Prüfe Schreibweise und Ort.', 'Adresse nicht gefunden');
+  state.user = { lon: t.lon, lat: t.lat };
+  speichereOrt({ lon: t.lon, lat: t.lat, label: text }); // der Vergleich startet dann gleich dort
+  zeigeStandortMarker(state.user);
+  deselect();
+  merkeAnsicht();
+  setSheet('peek');
+  map.easeTo({ center: [t.lon, t.lat], zoom: 15, padding: mapPadding() });
+}
 async function zumStandort() {
   countEl.textContent = 'Standort wird ermittelt …';
   try {
@@ -652,9 +753,9 @@ async function zumStandort() {
     return;
   }
   speichereOrt({ lon: state.user.lon, lat: state.user.lat, label: 'deinen Standort' }); // der Vergleich startet dann gleich dort
-  meMarker?.remove();
-  meMarker = new maplibregl.Marker({ element: el('div', { class: 'me-dot' }) }).setLngLat([state.user.lon, state.user.lat]).addTo(map);
+  zeigeStandortMarker(state.user);
   deselect();
+  merkeAnsicht(); // sonst ist der Standort nach dem Vergleich wieder weg
   setSheet('peek');
   map.easeTo({ center: [state.user.lon, state.user.lat], zoom: 14, padding: mapPadding() });
 }

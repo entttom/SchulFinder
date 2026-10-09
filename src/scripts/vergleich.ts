@@ -3,6 +3,7 @@ import {
 } from '../lib/types';
 import { distanceM, fmtDist, fmtNum } from '../lib/geo';
 import { SuchIndex } from '../lib/search';
+import { adresseSuchen } from '../lib/geocode';
 import { profilOf, profilLabel } from '../lib/profil';
 import { lade, speichere, MAX_AUSWAHL } from './auswahl';
 import { ladeOrt, speichereOrt, anzeigeText } from './ort';
@@ -309,11 +310,12 @@ const prozent = (rows: Uebertritt[]) => {
   return rows.map((r) => ({ r, pct: Math.round((r[1] / summe) * 100) }));
 };
 
-function uebertrittListe(rows: Uebertritt[] | undefined) {
-  if (!rows?.length) return el('span', { class: 'muted', textContent: '–' });
+function uebertrittListe(rows: Uebertritt[] | undefined, klein: Record<string, number> | undefined) {
+  if (!rows?.length && !klein) return el('span', { class: 'muted', textContent: '–' });
   const ul = el('ul', { class: 'cmp-ue' });
   const gruppen = new Map<string, Uebertritt[]>();
-  for (const r of rows) (gruppen.get(r[2]) ?? gruppen.set(r[2], []).get(r[2])!).push(r);
+  for (const r of rows ?? []) (gruppen.get(r[2]) ?? gruppen.set(r[2], []).get(r[2])!).push(r);
+  for (const code of Object.keys(klein ?? {})) if (!gruppen.has(code)) gruppen.set(code, []);
   for (const [code, z] of gruppen) {
     const summe = z.reduce((a, r) => a + r[1], 0);
     const proTyp = new Map<string, number>();
@@ -325,7 +327,13 @@ function uebertrittListe(rows: Uebertritt[] | undefined) {
     for (const [id, n] of [...proTyp.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)) {
       ul.append(el('li', {}, `${profilLabel(id)} `, el('b', { textContent: `${Math.round((n / summe) * 100)}\u00a0%` })));
     }
-    ul.append(el('li', { class: 'ue-h', textContent: `${summe} erfasste Wechsel` }));
+    const k = klein?.[code] ?? 0;
+    ul.append(
+      el('li', {
+        class: 'ue-h',
+        textContent: `${summe > 0 ? `${summe} erfasste Wechsel` : 'keine einzeln ausgewiesenen Wechsel'}${k ? `, dazu ${k} ${k === 1 ? 'Schule' : 'Schulen'} mit bis zu 6 Kindern` : ''}`,
+      }),
+    );
   }
   return ul;
 }
@@ -366,8 +374,8 @@ async function zeigeVergleich() {
     { label: 'Chancen\u00adbonus', cell: (s) => (s.bonus ? 'Ja' : 'Nein') },
     { label: 'Deutsch (Lesen)', cell: (s) => ergebnisZelle(s, 0) },
     { label: 'Mathematik', cell: (s) => ergebnisZelle(s, 1) },
-    { label: 'Abgänge zu', cell: (s) => uebertrittListe(ue.aus[s.skz]) },
-    { label: 'Zugänge von', cell: (s) => uebertrittListe(ue.zu[s.skz]) },
+    { label: 'Abgänge zu', cell: (s) => uebertrittListe(ue.aus[s.skz], ue.kleinAus?.[s.skz]) },
+    { label: 'Zugänge von', cell: (s) => uebertrittListe(ue.zu[s.skz], ue.kleinZu?.[s.skz]) },
     {
       label: 'Kontakt',
       cell: (s) => {
@@ -421,6 +429,13 @@ sucheAnbinden({
   list: $('suggest'),
   index: () => state.index,
   onPick: (v) => {
+    if (v.kind === 'adresse') {
+      countEl.textContent = 'Adresse wird gesucht …';
+      adresseSuchen(v.text)
+        .then((t) => (t ? setCenter({ lon: t.lon, lat: t.lat, label: v.text }) : (countEl.textContent = 'Diese Adresse wurde nicht gefunden.')))
+        .catch(() => (countEl.textContent = 'Die Adresssuche ist gerade nicht erreichbar.'));
+      return;
+    }
     if (v.kind === 'schule') {
       if (hatStandort(v.schule)) setCenter({ lon: v.schule.lon, lat: v.schule.lat, label: v.schule.name });
       return;

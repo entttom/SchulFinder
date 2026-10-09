@@ -1,16 +1,21 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { kern, details, uebertritte, ergebnisse } from '../../lib/data';
+import { kern, details, uebertritte, uebertritteKlein, ergebnisse } from '../../lib/data';
 import { adresse, bundeslandOf, klassengroesse, maedchenAnteil, stufeLabel, hatStandort, drittelImSatz, drittelKurz, HINWEIS_AUSSCHNITT, type Schule, type Uebertritt, type Drittel } from '../../lib/types';
 import { fmtNum } from '../../lib/geo';
 import { profilOf, profilLabel } from '../../lib/profil';
+import ThemeToggle from '../../components/ThemeToggle.astro';
 import UebertrittBlock, { type Gruppe } from '../../components/UebertrittBlock.astro';
 
 export function getStaticPaths() {
   const d = kern();
   const det = details();
   const ue = uebertritte();
+  const klein = uebertritteKlein();
   const erg = ergebnisse();
+  // { stufe: [skz] } -> { stufe: [Schule] }, nur bekannte Schulen
+  const alsSchulen = (m: Record<string, string[]> | undefined) =>
+    Object.fromEntries(Object.entries(m ?? {}).map(([typ, ids]) => [typ, ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))]));
   const byId = new Map(d.schulen.map((s) => [s.skz, s]));
   const kat = new Map(d.kategorien.map((k) => [k.id, k.label]));
 
@@ -26,13 +31,16 @@ export function getStaticPaths() {
       volksschule: s.kat === 'vs' || (s.weitere ?? []).includes('vs'),
       aus: (ue.aus[s.skz] ?? []).flatMap((u) => (byId.has(u[0]) ? [{ u, ziel: byId.get(u[0])! }] : [])),
       zu: (ue.zu[s.skz] ?? []).flatMap((u) => (byId.has(u[0]) ? [{ u, ziel: byId.get(u[0])! }] : [])),
+      kleinAus: alsSchulen(klein.aus[s.skz]),
+      kleinZu: alsSchulen(klein.zu[s.skz]),
     },
   }));
 }
 
 type Zeile = { u: Uebertritt; ziel: Schule };
-const { s, detail, kategorie, schuljahr, aus, zu, ergebnis, zyklus, volksschule } = Astro.props as {
+const { s, detail, kategorie, schuljahr, aus, zu, kleinAus, kleinZu, ergebnis, zyklus, volksschule } = Astro.props as {
   s: Schule; detail: any; kategorie: string; schuljahr: string; aus: Zeile[]; zu: Zeile[];
+  kleinAus: Record<string, Schule[]>; kleinZu: Record<string, Schule[]>;
   ergebnis: [Drittel | null, Drittel | null] | null; zyklus: string; volksschule: boolean;
 };
 const faecher = ergebnis ? ([['Deutsch (Lesen)', ergebnis[0]], ['Mathematik', ergebnis[1]]] as [string, Drittel | null][]) : [];
@@ -40,31 +48,38 @@ const vorhanden = faecher.filter(([, d]) => d);
 const zeitraum = zyklus.replace('Schuljahre ', '').replace(' - ', ' – ');
 const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
-// Übertritte je Schulstufe gruppieren und nach Schulart des Ziels zusammenfassen
-const gruppiere = (rows: Zeile[]): Gruppe[] => {
+// Übertritte je Schulstufe gruppieren und nach Schulart des Ziels zusammenfassen.
+// Wechsel mit höchstens 6 Kindern je Zielschule gibt die Statistik nicht einzeln an: Sie stehen nur als Schulen in der Liste.
+const gruppiere = (rows: Zeile[], klein: Record<string, Schule[]>): Gruppe[] => {
   const g = new Map<string, Zeile[]>();
   for (const r of rows) (g.get(r.u[2]) ?? g.set(r.u[2], []).get(r.u[2])!).push(r);
-  return [...g.entries()].map(([code, z]) => {
+  const codes = [...new Set([...g.keys(), ...Object.keys(klein)])];
+  return codes.map((code) => {
+    const z = g.get(code) ?? [];
     const summe = z.reduce((a, r) => a + r.u[1], 0);
-    const proTyp = new Map<string, Zeile[]>();
-    for (const r of z) (proTyp.get(profilOf(r.ziel)) ?? proTyp.set(profilOf(r.ziel), []).get(profilOf(r.ziel))!).push(r);
-    const typen = [...proTyp.entries()]
-      .map(([id, rs]) => {
+    const bekannt = new Map<string, Zeile[]>();
+    for (const r of z) (bekannt.get(profilOf(r.ziel)) ?? bekannt.set(profilOf(r.ziel), []).get(profilOf(r.ziel))!).push(r);
+    const kleinProTyp = new Map<string, Schule[]>();
+    for (const k of klein[code] ?? []) (kleinProTyp.get(profilOf(k)) ?? kleinProTyp.set(profilOf(k), []).get(profilOf(k))!).push(k);
+    const typen = [...new Set([...bekannt.keys(), ...kleinProTyp.keys()])]
+      .map((id) => {
+        const rs = bekannt.get(id) ?? [];
         const n = rs.reduce((a, r) => a + r.u[1], 0);
         return {
           id,
           label: profilLabel(id),
           n,
-          pct: Math.round((n / summe) * 100),
+          pct: n > 0 ? Math.round((n / summe) * 100) : null,
           zeilen: rs.sort((a, b) => b.u[1] - a.u[1]).map((r) => ({ ...r, pct: Math.round((r.u[1] / summe) * 100) })),
+          klein: (kleinProTyp.get(id) ?? []).sort((a, b) => a.name.localeCompare(b.name, 'de')),
         };
       })
-      .sort((a, b) => b.n - a.n);
-    return { titel: stufeLabel(code), summe, typen };
+      .sort((a, b) => b.n - a.n || b.klein.length - a.klein.length);
+    return { titel: stufeLabel(code), summe, kleinN: (klein[code] ?? []).length, typen };
   });
 };
-const ausG = gruppiere(aus);
-const zuG = gruppiere(zu);
+const ausG = gruppiere(aus, kleinAus);
+const zuG = gruppiere(zu, kleinZu);
 
 const klasse = klassengroesse(s);
 const maedchen = maedchenAnteil(s);
@@ -77,6 +92,7 @@ const bl = bundeslandOf(s);
 <Base title={title} description={`${kategorie} in ${s.gemeinde ?? s.ort} (Schulkennzahl ${s.skz}): Schülerzahl, Klassen, Kontakt und Übertritte.`}>
   <main class="detail">
     <a class="back" data-zurueck data-nur-seite href={base}>← Zur Karte</a>
+    <ThemeToggle nurSeite />
     <h1 data-nur-seite>{s.name}</h1>
     <p class="sub" data-nur-seite>{detail?.art ?? kategorie}{s.gemeinde || s.ort ? ` · ${s.gemeinde ?? s.ort}` : ''}</p>
     <div class="tags">
@@ -167,7 +183,7 @@ const bl = bundeslandOf(s);
     {(ausG.length > 0 || zuG.length > 0) && (
       <section>
         <h2>Übertritte</h2>
-        <p class="muted">Wohin wechseln die Kinder nach dieser Schule, und woher kommen sie? Zusammengefasst nach Schulart des Ziels. Die Prozentwerte beziehen sich auf die Wechsel, die die Statistik Austria ausweist. Das können weniger Kinder sein als ein ganzer Jahrgang.</p>
+        <p class="muted">Wohin wechseln die Kinder nach dieser Schule, und woher kommen sie? Zusammengefasst nach Schulart des Ziels. Wechsel von höchstens 6 Kindern je Zielschule gibt die Statistik Austria aus Datenschutzgründen nicht einzeln an. Sie stehen als „≤ 6“ in den Listen und sind in den Prozentwerten nicht enthalten, die Prozentwerte zeigen also nur die größeren Wechsel.</p>
         {ausG.map((g) => <UebertrittBlock prefix="Abgänge" g={g} base={base} />)}
         {zuG.map((g) => <UebertrittBlock prefix="Zugänge" g={g} base={base} />)}
       </section>

@@ -7,6 +7,8 @@ export type Kartenansicht = {
   padding: { top: number; bottom: number; left: number; right: number };
   filter: string; // Filter als URL-Parameter (k, e, b)
   skz: string | null;
+  /** Standort, falls er auf der Karte angezeigt wird (nur für die Dauer des Tabs) */
+  user?: { lon: number; lat: number };
 };
 
 const KEY = 'schulfinder.karte';
@@ -14,7 +16,9 @@ const KEY = 'schulfinder.karte';
 export function ladeAnsicht(): Kartenansicht | null {
   try {
     const v = JSON.parse(sessionStorage.getItem(KEY) ?? 'null');
-    return v && Number.isFinite(v.lon) && Number.isFinite(v.lat) && Number.isFinite(v.zoom) ? v : null;
+    if (!(v && Number.isFinite(v.lon) && Number.isFinite(v.lat) && Number.isFinite(v.zoom))) return null;
+    if (v.user && !(Number.isFinite(v.user.lon) && Number.isFinite(v.user.lat))) delete v.user;
+    return v;
   } catch {
     return null;
   }

@@ -4,28 +4,57 @@ import type { Schule, Uebertritt } from '../lib/types';
 export type Gruppe = {
   titel: string;
   summe: number;
-  typen: { id: string; label: string; n: number; pct: number; zeilen: { u: Uebertritt; ziel: Schule; pct: number }[] }[];
+  kleinN: number;
+  typen: {
+    id: string;
+    label: string;
+    n: number;
+    pct: number | null;
+    zeilen: { u: Uebertritt; ziel: Schule; pct: number }[];
+    klein: Schule[];
+  }[];
 };
 interface Props { prefix: string; g: Gruppe; base: string }
 const { prefix, g, base } = Astro.props;
 const stufe = g.titel.charAt(0).toLowerCase() + g.titel.slice(1);
+const adr = (z: Schule) => [z.strasse, z.gemeinde ?? z.ort].filter(Boolean).join(', ');
+const schulen = (n: number) => `${n} ${n === 1 ? 'Schule' : 'Schulen'}`;
 ---
 <div class="ue">
-  <h3>{prefix} {stufe} <small class="muted">· {g.summe} erfasste Wechsel</small></h3>
+  <h3>
+    {prefix} {stufe}
+    <small class="muted">
+      · {g.summe > 0 ? `${g.summe} erfasste Wechsel` : 'keine einzeln ausgewiesenen Wechsel'}{g.kleinN > 0 ? `, dazu ${schulen(g.kleinN)} mit je bis zu 6 Kindern` : ''}
+    </small>
+  </h3>
   <div class="ue-typen">
     {g.typen.map((t) => (
       <details class="ue-typ">
         <summary>
-          <span class="ue-name">{t.label}<small>{t.n} {t.n === 1 ? 'Kind' : 'Kinder'} · {t.zeilen.length} {t.zeilen.length === 1 ? 'Schule' : 'Schulen'}</small></span>
-          <span class="ue-pct">{t.pct} %</span>
-          <span class="bar"><i style={`width:${Math.max(t.pct, 1.5)}%`}></i></span>
+          <span class="ue-name">
+            {t.label}
+            <small>
+              {t.n > 0 ? `${t.n} ${t.n === 1 ? 'Kind' : 'Kinder'} · ${schulen(t.zeilen.length)}` : ''}{t.n > 0 && t.klein.length > 0 ? ' · ' : ''}{t.klein.length > 0 ? `${schulen(t.klein.length)} mit bis zu 6 Kindern` : ''}
+            </small>
+          </span>
+          <span class="ue-pct">{t.pct !== null ? `${t.pct} %` : '≤ 6'}</span>
+          <span class="bar"><i style={`width:${t.pct !== null ? Math.max(t.pct, 1.5) : 0}%`}></i></span>
         </summary>
         <ul class="ue-schulen">
           {t.zeilen.map((r) => (
             <li>
               <a href={`${base}schule/${r.ziel.skz}/`}>
-                <span class="ue-name">{r.ziel.name}<small>{[r.ziel.strasse, r.ziel.gemeinde ?? r.ziel.ort].filter(Boolean).join(', ')}</small></span>
+                <span class="ue-name">{r.ziel.name}<small>{adr(r.ziel)}</small></span>
                 <span class="ue-pct">{r.pct} % <small>({r.u[1]})</small></span>
+              </a>
+            </li>
+          ))}
+          {t.klein.length > 0 && <li class="ue-klein-kopf">Bis zu 6 Kinder je Schule, die genaue Zahl wird nicht angegeben</li>}
+          {t.klein.map((z) => (
+            <li>
+              <a href={`${base}schule/${z.skz}/`}>
+                <span class="ue-name">{z.name}<small>{adr(z)}</small></span>
+                <span class="ue-pct">≤ 6</span>
               </a>
             </li>
           ))}

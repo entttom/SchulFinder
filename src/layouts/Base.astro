@@ -12,6 +12,9 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <meta name="description" content={description} />
     <meta name="color-scheme" content="light dark" />
     <title>{title}</title>
+    <script is:inline>
+      try { var t = localStorage.getItem('schulfinder-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+    </script>
   </head>
   <body>
     <slot />
@@ -25,6 +28,7 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <script>
       import '../scripts/fab.ts';
       import '../scripts/zurueck.ts';
+      import '../scripts/theme.ts';
     </script>
   </body>
 </html>

@@ -12,10 +12,23 @@
   --peek: 36dvh;
   --full: 82dvh;
   --panel-w: 400px;
-  color-scheme: light dark;
+  color-scheme: light;
+}
+/* Dunkel: per Schalter erzwungen oder (im Modus "System") vom Gerät vorgegeben */
+:root[data-theme='dark'] {
+  --bg: #171a21;
+  --bg-2: #232733;
+  --text: #eef0f4;
+  --text-2: #a3a9b6;
+  --line: #333847;
+  --accent: #6ea2ff;
+  --accent-bg: #1f2d4a;
+  --on-accent: #0b1220;
+  --shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme='light']):not([data-theme='dark']) {
     --bg: #171a21;
     --bg-2: #232733;
     --text: #eef0f4;
@@ -25,6 +38,7 @@
     --accent-bg: #1f2d4a;
     --on-accent: #0b1220;
     --shadow: 0 2px 12px rgb(0 0 0 / 0.5);
+    color-scheme: dark;
   }
 }
 
@@ -94,6 +108,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font-size: 14px; white-space: nowrap;
 }
 .chip[aria-pressed='true'] { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.chip.einzug-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 500; }
+.chip.einzug-link .ico { width: 18px; height: 18px; }
 .chip.sep { width: 1px; padding: 0; border: 0; background: var(--line); box-shadow: none; margin: 8px 2px; height: 24px; }
 
 /* ---------- Bottom Sheet ---------- */
@@ -171,7 +187,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
     display: flex; flex-direction: column; min-height: 0; z-index: 6;
     background: var(--bg); border-right: 1px solid var(--line);
   }
-  .top { position: relative; padding: 16px 16px 4px; }
+  /* über der Ergebnisliste (.sheet, z-index 6), sonst wird das Dropdown der Suchvorschläge dort abgeschnitten */
+  .top { position: relative; z-index: 7; padding: 16px 16px 4px; }
   .search { box-shadow: none; }
   .chip { box-shadow: none; }
   .suggest { position: absolute; left: 16px; right: 16px; z-index: 10; }
@@ -521,7 +538,8 @@ dialog.cmp[open]::backdrop { background: rgb(0 0 0 / 0.5); backdrop-filter: blur
 
 /* Zoom-Knöpfe der Karte: am Handy unter Suche und Filter, sonst verdeckt sie die Suchleiste */
 @media (max-width: 899.98px) {
-  .maplibregl-ctrl-top-right { top: calc(max(12px, env(safe-area-inset-top)) + 112px); right: 4px; }
+  /* #map erhöht die Spezifität, sonst gewinnt top: 0 aus dem später geladenen maplibre-gl.css */
+  #map .maplibregl-ctrl-top-right { top: calc(max(12px, env(safe-area-inset-top)) + 112px); right: 4px; }
 }
 
 /* ---------- Schulmittelwerte ---------- */
@@ -549,6 +567,52 @@ dialog.cmp[open]::backdrop { background: rgb(0 0 0 / 0.5); backdrop-filter: blur
 .el-titel { color: var(--text-2); margin-bottom: 6px; }
 .el-stufen { display: flex; flex-wrap: wrap; gap: 4px 12px; }
 .el-stufen span { display: inline-flex; align-items: center; gap: 5px; }
+.el-kennzahlen { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 13px; }
+.el-kennzahlen:empty { display: none; }
+.el-kennzahlen small { display: block; margin-top: 4px; color: var(--text-2); font-size: 11px; }
 .el-stufen i { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgb(0 0 0 / 0.12); }
 .card-detail .volltitel { margin: 14px 0 0; font-size: 14px; color: var(--text-2); }
 .card-head h2 { overflow-wrap: anywhere; }
+.ue-klein-kopf { padding: 10px 0 2px; font-size: 12px; color: var(--text-2); border-top: 0 !important; }
+.ue-schulen .ue-klein-kopf + li { border-top: 0; }
+
+/* ---------- Einzugsgebiete an meiner Adresse ---------- */
+.ez { padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+.ez .vg-top.ez-top { display: block; }
+.ez-top h1 { font-size: 22px; line-height: 1.2; margin: 0 0 6px; }
+.ez-intro { margin: 0 0 16px; }
+.ez-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 16px; }
+.ez-form form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.ez-form .field { min-width: 0; }
+.ez-form .btn.primary { width: 100%; min-height: 48px; font-size: 16px; }
+.ez-form .chips.scroll { margin: 0 -16px; padding: 2px 16px 6px; scroll-padding: 0 16px; scroll-snap-type: x proximity; }
+.ez-form .chips.scroll .chip { scroll-snap-align: start; }
+.ez-privat { margin: 0; font-size: 12px; line-height: 1.4; }
+.ez-status { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--bg-2); font-size: 15px; line-height: 1.4; scroll-margin-top: 12px; }
+.ez-status.fehler { border: 1px solid var(--line); }
+.ez-status[hidden] { display: none; }
+.ez-liste { display: grid; gap: 10px; margin-bottom: 14px; }
+.ez-titel { margin: 6px 2px 0; font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: none; list-style: none; }
+.ez-row { display: block; padding: 0; margin: 0; }
+.ez-link { display: grid; gap: 6px; padding: 14px; color: inherit; text-decoration: none; border-radius: 14px; -webkit-tap-highlight-color: transparent; }
+.ez-link:active { background: var(--bg-2); }
+.ez-name { font-weight: 600; line-height: 1.25; color: var(--accent); }
+.ez-treffer { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; }
+.ez-swatch { flex: none; width: 18px; height: 18px; margin-top: 1px; border-radius: 5px; border: 1px solid rgb(0 0 0 / 0.12); }
+.ez-sub { font-size: 13px; color: var(--text-2); line-height: 1.35; }
+@media (min-width: 600px) {
+  .ez { max-width: 720px; }
+  .ez-form .btn.primary { width: auto; justify-self: start; min-height: 44px; }
+  .ez-form .chips.scroll { margin: 0; padding: 2px 2px 6px; flex-wrap: wrap; overflow: visible; }
+}
+
+/* ---------- Dunkelmodus: Schalter ---------- */
+.theme-toggle { color: var(--accent); }
+.theme-toggle .ico { display: none; }
+.theme-toggle[data-modus='auto'] .t-auto,
+.theme-toggle[data-modus='light'] .t-light,
+.theme-toggle[data-modus='dark'] .t-dark { display: block; }
+.vg-top, .detail { position: relative; }
+.vg-top > .theme-toggle, .detail > .theme-toggle { position: absolute; top: max(6px, env(safe-area-inset-top)); right: -8px; z-index: 2; }
+.detail > .theme-toggle { top: max(12px, env(safe-area-inset-top)); }
+@media (min-width: 900px) { .vg-top > .theme-toggle { right: 0; } }

@@ -6,7 +6,9 @@ export const norm = (s: string) =>
 export type Ort = { kind: 'ort'; label: string; sub: string; lon: number; lat: number; schulen: Schule[] };
 export type PlzTreffer = { kind: 'plz'; label: string; sub: string; lon: number; lat: number; schulen: Schule[] };
 export type SchulTreffer = { kind: 'schule'; label: string; sub: string; schule: Schule };
-export type Vorschlag = Ort | PlzTreffer | SchulTreffer;
+/** Freitext als Adresse: wird erst bei Auswahl über OpenStreetMap (Nominatim) gesucht, nicht beim Tippen. */
+export type AdressTreffer = { kind: 'adresse'; label: string; sub: string; text: string };
+export type Vorschlag = Ort | PlzTreffer | SchulTreffer | AdressTreffer;
 
 type Gruppe = { label: string; norm: string; schulen: Schule[] };
 

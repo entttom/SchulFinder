@@ -3,7 +3,7 @@
 Schulen in Österreich auf der Karte finden und in der Umgebung vergleichen. Mobil optimiert, statisch gebaut, ohne Backend.
 
 - **Karte:** alle Schulen mit Suche (Ort, Postleitzahl, Schule), Filter und Standort
-- **Vergleich:** Schulen im Umkreis als sortierbare Liste, bis zu vier nebeneinander (teilbarer Link)
+- **Vergleich:** Schulen im Umkreis als sortierbare Liste, bis zu sechs nebeneinander (teilbarer Link)
 - **Detailseiten:** eine Seite pro Schule mit Kontakt, Kennzahlen und Übertritten
 
 ## Entwicklung

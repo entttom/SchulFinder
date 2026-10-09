@@ -1,6 +1,6 @@
 // Gemerkte Schulen für den Vergleich. Liegt im Browser (localStorage), ohne Anmeldung.
 // Fällt auf den Arbeitsspeicher zurück, wenn der Browser das Speichern blockiert (z. B. privates Fenster).
-export const MAX_AUSWAHL = 4;
+export const MAX_AUSWAHL = 6;
 const KEY = 'schulfinder.vergleich';
 let speicher: string[] = [];
 
