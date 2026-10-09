@@ -19,12 +19,3 @@ export function gkToWgs84(meridian, rw, hw) {
   const [lon, lat] = proj4(d, 'WGS84', [rw, hw]);
   return { lon, lat };
 }
-
-/** Entfernung in Metern (Haversine). */
-export function distanceM(aLon, aLat, bLon, bLat) {
-  const r = Math.PI / 180;
-  const dLat = (bLat - aLat) * r;
-  const dLon = (bLon - aLon) * r;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * r) * Math.cos(bLat * r) * Math.sin(dLon / 2) ** 2;
-  return 12742000 * Math.asin(Math.sqrt(h));
-}

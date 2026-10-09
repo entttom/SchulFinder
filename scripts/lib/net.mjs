@@ -2,7 +2,7 @@ export const USER_AGENT = 'SchulFinder-Importer (+https://github.com/entttom/Sch
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** fetch mit User-Agent, Timeout und Wiederholung bei Fehlern. */
+/** fetch mit User-Agent, Timeout und Wiederholung bei Netzfehlern, Zeitüberschreitung, 429 und 5xx. */
 export async function request(url, init = {}, { retries = 3, timeoutMs = 90000 } = {}) {
   let lastError;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -13,10 +13,12 @@ export async function request(url, init = {}, { retries = 3, timeoutMs = 90000 }
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (res.status === 429 || res.status >= 500) throw new Error(`HTTP ${res.status}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status} für ${url}`);
+      // Andere Fehler (z. B. 404) ändern sich durch Wiederholen nicht
+      if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { endgueltig: true });
       return res;
     } catch (err) {
       lastError = err;
+      if (err.endgueltig) break;
       if (attempt < retries) await sleep(1000 * 2 ** attempt);
     }
   }

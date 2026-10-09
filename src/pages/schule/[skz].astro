@@ -85,11 +85,12 @@ const klasse = klassengroesse(s);
 const maedchen = maedchenAnteil(s);
 const hatStats = s.schueler !== undefined;
 const ziel = hatStandort(s) ? `${s.lat},${s.lon}` : null;
-const vergleich = hatStandort(s) ? `${base}vergleich/?lon=${s.lon}&lat=${s.lat}&r=5` : null;
-const title = `${s.name}, ${s.gemeinde ?? s.ort ?? ''} – SchulFinder`;
+const vergleich = hatStandort(s) ? `${base}vergleich/?${new URLSearchParams({ lon: String(s.lon), lat: String(s.lat), o: s.name, r: '5' })}` : null;
+const ortName = s.gemeinde ?? s.ort;
+const title = `${s.name}${ortName ? `, ${ortName}` : ''} – SchulFinder`;
 const bl = bundeslandOf(s);
 ---
-<Base title={title} description={`${kategorie} in ${s.gemeinde ?? s.ort} (Schulkennzahl ${s.skz}): Schülerzahl, Klassen, Kontakt und Übertritte.`}>
+<Base title={title} description={`${kategorie}${ortName ? ` in ${ortName}` : ''} (Schulkennzahl ${s.skz}): Schülerzahl, Klassen, Kontakt und Übertritte.`}>
   <main class="detail">
     <a class="back" data-zurueck data-nur-seite href={base}>← Zur Karte</a>
     <ThemeToggle nurSeite />

@@ -48,7 +48,7 @@ function zeile(s: Schule, abstand: number, c: number, nah = false) {
     { class: 'vg-row ez-row' },
     el(
       'a',
-      { class: 'ez-link', href: `${base}?skz=${s.skz}&e=1` },
+      { class: 'ez-link', href: `${base}?skz=${s.skz}&ez=1` },
       el('span', { class: 'ez-name', textContent: s.name }),
       el(
         'span',
@@ -115,18 +115,28 @@ async function pruefe(punkt: { lon: number; lat: number }) {
     ...(nah.length ? [abschnitt('Kinder aus der Umgebung (etwa 500 m)')] : []),
     ...sortiere(nah).map((t) => zeile(t.s, t.d, t.c, true)),
   );
-  const ohne = kandidaten.length - hier.length - nah.length - fehler;
+  go.disabled = false;
+  if (fehler === kandidaten.length) {
+    setStatus('Die Wohnortdaten konnten nicht abgefragt werden. Versuche es später noch einmal.', true);
+    return;
+  }
+  const geprueft = kandidaten.length - fehler;
+  const ohne = geprueft - hier.length - nah.length;
+  // Sind Abfragen fehlgeschlagen, beziehen sich die Aussagen nur auf die geprüften Schulen
+  const bezug = fehler ? `${geprueft} geprüften` : `${kandidaten.length} nächsten`;
+  const hat = (n: number) => (n === 1 ? 'hat' : 'haben');
   const teile = [
     hier.length
-      ? `${hier.length} der ${kandidaten.length} nächsten Schulen haben Kinder aus deiner Zelle.`
-      : `Aus deiner 500-m-Zelle gehen keine Kinder an die ${kandidaten.length} nächsten Schulen.`,
-    nah.length ? `${nah.length} weitere haben Kinder aus der Umgebung.` : '',
-    ohne > 0 && (hier.length || nah.length) ? `${ohne} haben in der Nähe keine Kinder.` : '',
-    fehler ? `${fehler} Abfragen sind fehlgeschlagen, versuche es später noch einmal.` : '',
+      ? `${hier.length} der ${bezug} Schulen ${hat(hier.length)} Kinder aus deiner Zelle.`
+      : nah.length
+        ? `Keine der ${bezug} Schulen hat Kinder aus deiner Zelle.`
+        : `Aus deiner 500-m-Zelle und ihrer Umgebung gehen keine Kinder an die ${bezug} Schulen.`,
+    nah.length ? `${nah.length} ${hier.length ? 'weitere ' : ''}${hat(nah.length)} Kinder aus der Umgebung.` : '',
+    ohne > 0 && (hier.length || nah.length) ? `${ohne} ${hat(ohne)} in der Nähe keine Kinder.` : '',
+    fehler ? `${fehler} ${fehler === 1 ? 'Abfrage ist' : 'Abfragen sind'} fehlgeschlagen, versuche es später noch einmal.` : '',
   ];
   setStatus(teile.filter(Boolean).join(' '), fehler > 0);
   hinweisEl.hidden = false;
-  go.disabled = false;
   // Auf dem Handy liegt das Ergebnis unter dem Formular
   statusEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

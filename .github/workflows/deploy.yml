@@ -4,7 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: '0 5 1 * *' # monatlich: Daten neu laden
+    # wöchentlich: Daten neu laden. Hält auch den Zwischenspeicher am Leben,
+    # GitHub löscht Caches, die 7 Tage lang nicht verwendet wurden.
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -29,15 +31,24 @@ jobs:
       - run: npm ci
       - run: npm test
 
-      # Zwischenspeicher der Rohdaten: schont die Quellserver (Übertritte werden nur
-      # alle 90 Tage neu abgefragt) und dient als Rückfall, wenn eine Quelle ausfällt.
-      - uses: actions/cache@v4
+      # Zwischenspeicher der Rohdaten: schont die Quellserver (Übertritte und Ergebnisse werden
+      # je Schule nur alle 90 Tage neu abgefragt) und dient als Rückfall, wenn eine Quelle ausfällt.
+      - uses: actions/cache/restore@v4
         with:
           path: .cache
-          key: daten-${{ github.run_id }}
+          key: daten-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: daten-
 
+      # Zeitbudget der Abfragen (40 min) bleibt unter dem Limit des Jobs
       - run: npm run data
+
+      # Auch speichern, wenn ein späterer Schritt scheitert oder der Lauf abgebrochen wird:
+      # sonst wären die schon abgefragten Schulen verloren
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: .cache
+          key: daten-${{ github.run_id }}-${{ github.run_attempt }}
       - run: npm run build
         env:
           SITE: https://${{ github.repository_owner }}.github.io

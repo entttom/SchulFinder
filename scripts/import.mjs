@@ -1,12 +1,15 @@
-// Lädt Bildungskompass und Statistik Austria (Schulatlas), führt sie über die
-// Schulkennzahl zusammen und schreibt public/data/{schulen,uebertritte}.json.
+// Lädt Bildungskompass und Statistik Austria (Schulatlas), führt sie über die Schulkennzahl zusammen
+// und schreibt nach public/data/: schulen.json, details.json, uebertritte.json, uebertritte-klein.json
+// und ergebnisse.json.
 //
-//   npm run data                  alles (Übertritte nur, wenn der Cache älter als 90 Tage ist)
+//   npm run data                  alles (Übertritte und Ergebnisse je Schule nur, wenn älter als 90 Tage)
 //   npm run data -- --offline     nur aus .cache neu zusammenführen
 //   npm run data -- --no-uebertritte
 //   npm run data -- --no-ergebnisse
 //
-// Umgebung: UEBERTRITTE_MAX_AGE_DAYS (90), UEBERTRITTE_MAX_MINUTES (40); gelten auch für die Ergebnisse
+// Umgebung (gelten für Übertritte und Ergebnisse):
+//   UEBERTRITTE_MAX_AGE_DAYS (90)  Alter, ab dem eine Schule neu abgefragt wird
+//   UEBERTRITTE_MAX_MINUTES (40)   gemeinsames Zeitbudget für beide Abfragen; der Rest folgt beim nächsten Lauf
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { getJson, postJson, throttled } from './lib/net.mjs';
 import { mergeSources, invertUebertritte, splitKernDetail, KATEGORIEN } from './lib/merge.mjs';
@@ -19,6 +22,8 @@ const withUebertritte = !args.has('--no-uebertritte');
 const withErgebnisse = !args.has('--no-ergebnisse');
 const MAX_AGE_MS = Number(process.env.UEBERTRITTE_MAX_AGE_DAYS ?? 90) * 864e5;
 const MAX_MINUTES = Number(process.env.UEBERTRITTE_MAX_MINUTES ?? 40);
+// Ein Budget für beide Abfragen, damit der Lauf sicher unter dem Zeitlimit des Deploy-Jobs bleibt
+const DEADLINE = Date.now() + MAX_MINUTES * 60000;
 
 const BK_URL = 'https://www.bildungskompass.gv.at/api/oeffentliche-schulen/search';
 const ATLAS = 'https://www.statistik.at/gs-atlas/ATLAS_SCHULE_WFS/ows';
@@ -30,7 +35,6 @@ const MIT_UEBERTRITT = new Set(['VS', 'NMSH', 'HS', 'AHS', 'NMSA', 'SS', 'ASTAT'
 
 await mkdir('.cache', { recursive: true });
 await mkdir('public/data', { recursive: true });
-await mkdir('build-data', { recursive: true }); // nur für den Build, wird nicht veröffentlicht
 
 const readCache = async (name) => JSON.parse(await readFile(`.cache/${name}`, 'utf8'));
 const writeCache = (name, data) => writeFile(`.cache/${name}`, JSON.stringify(data));
@@ -89,8 +93,7 @@ if (withUebertritte) {
     .filter((skz) => offline === false && !(cache[skz]?.klein && now - cache[skz].t < MAX_AGE_MS)); // Einträge ohne "klein" stammen aus dem alten Format
 
   if (todo.length) {
-    console.log(`Übertritte: ${todo.length} Schulen abzufragen (Budget ${MAX_MINUTES} min)`);
-    const deadline = now + MAX_MINUTES * 60000;
+    console.log(`Übertritte: ${todo.length} Schulen abzufragen (Budget noch ${Math.round((DEADLINE - Date.now()) / 60000)} min)`);
     let done = 0;
     let failed = 0;
     await throttled(
@@ -107,7 +110,7 @@ if (withUebertritte) {
           console.log(`  ${done}/${todo.length}${failed ? `, ${failed} Fehler` : ''}`);
         }
       },
-      { concurrency: 4, gapMs: 100, shouldStop: () => Date.now() > deadline },
+      { concurrency: 4, gapMs: 100, shouldStop: () => Date.now() > DEADLINE },
     );
     await writeCache('uebertritte.json', cache);
     if (done < todo.length) console.warn(`! Zeitbudget erreicht: ${todo.length - done} Schulen folgen beim nächsten Lauf`);
@@ -127,14 +130,14 @@ if (withUebertritte) {
     if (klein.length) kleinAus[skz] = klein;
   }
   const kleinZu = invertKlein(kleinAus);
-  // uebertritte.json enthält nur die Anzahl kleiner Wechsel, die Zielschulen stehen in uebertritte-klein.json
+  // uebertritte.json enthält nur die Anzahl kleiner Wechsel, die Schulen stehen in uebertritte-klein.json
+  // (für die Detailseiten im Build und für den Vergleich, der sie erst beim Aufklappen lädt)
   await writeFile(
     'public/data/uebertritte.json',
     JSON.stringify({ aus: out, zu: invertUebertritte(out), kleinAus: zaehlePerStufe(kleinAus), kleinZu: zaehlePerStufe(Object.fromEntries(Object.entries(kleinZu).map(([z, g]) => [z, Object.entries(g).flatMap(([typ, q]) => q.map((x) => [x, typ]))])) ) }),
   );
   const kleinNamen = JSON.stringify({ aus: Object.fromEntries(Object.entries(kleinAus).map(([k, l]) => [k, l.reduce((m, [z, t]) => ((m[t] ??= []).push(z), m), {})])), zu: kleinZu });
-  await writeFile('build-data/uebertritte-klein.json', kleinNamen);
-  await writeFile('public/data/uebertritte-klein.json', kleinNamen); // für den Vergleich, wird erst beim Aufklappen geladen
+  await writeFile('public/data/uebertritte-klein.json', kleinNamen);
   console.log(`Übertritte: ${Object.keys(out).length} Schulen mit ausgewiesenen Abgängen, ${Object.keys(kleinAus).length} mit kleinen Wechseln (je höchstens 6 Kinder)`);
 }
 
@@ -152,8 +155,7 @@ if (withErgebnisse) {
     .filter((skz) => offline === false && !(cache[skz] && now - cache[skz].t < MAX_AGE_MS));
 
   if (todo.length) {
-    console.log(`Ergebnisse: ${todo.length} Schulen abzufragen (Budget ${MAX_MINUTES} min)`);
-    const deadline = now + MAX_MINUTES * 60000;
+    console.log(`Ergebnisse: ${todo.length} Schulen abzufragen (Budget noch ${Math.round((DEADLINE - Date.now()) / 60000)} min)`);
     let done = 0;
     let failed = 0;
     await throttled(
@@ -170,7 +172,7 @@ if (withErgebnisse) {
           console.log(`  ${done}/${todo.length}${failed ? `, ${failed} Fehler` : ''}`);
         }
       },
-      { concurrency: 4, gapMs: 100, shouldStop: () => Date.now() > deadline },
+      { concurrency: 4, gapMs: 100, shouldStop: () => Date.now() > DEADLINE },
     );
     await writeCache('ergebnisse.json', cache);
     if (done < todo.length) console.warn(`! Zeitbudget erreicht: ${todo.length - done} Schulen folgen beim nächsten Lauf`);

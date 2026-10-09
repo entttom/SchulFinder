@@ -5,7 +5,7 @@ import { distanceM, fmtDist, fmtNum } from '../lib/geo';
 import { SuchIndex } from '../lib/search';
 import { adresseSuchen } from '../lib/geocode';
 import { profilOf, profilLabel } from '../lib/profil';
-import { lade, speichere, MAX_AUSWAHL } from './auswahl';
+import { lade, speichere, beiAenderung, MAX_AUSWAHL } from './auswahl';
 import { ladeOrt, speichereOrt, anzeigeText } from './ort';
 import { ladeAnsicht } from './ansicht';
 import {
@@ -50,7 +50,8 @@ function zuUrl() {
   p.set('r', String(state.r));
   filterToParams(state.filter, p);
   if (state.sel.length) p.set('sel', state.sel.join(','));
-  if (state.sort.key !== 'dist') p.set('s', state.sort.key);
+  if (state.sort.key !== 'dist' || state.sort.dir !== 1) p.set('s', state.sort.key);
+  if (state.sort.dir !== standardRichtung(state.sort.key)) p.set('sr', '1'); // umgekehrte Richtung
   if (dlg.open) p.set('cmp', '1');
   history.replaceState(null, '', `${location.pathname}?${p}`);
 }
@@ -295,6 +296,15 @@ function aktualisiereLeiste() {
 
 selInfo.addEventListener('click', () => setSelPanel(selPanel.hidden));
 
+// Auswahl auf einer anderen Seite oder in einem anderen Tab geändert, auch beim Zurückgehen aus dem Seitencache
+beiAenderung(() => {
+  if (!state.daten) return;
+  const neu = lade().filter((k) => state.byId.has(k));
+  if (neu.join(',') === state.sel.join(',')) return;
+  state.sel = neu;
+  render();
+});
+
 $('clearSel').addEventListener('click', () => {
   state.sel = [];
   rowsEl.querySelectorAll<HTMLInputElement>('input[type=checkbox]').forEach((c) => (c.checked = false));
@@ -305,11 +315,6 @@ $('clearSel').addEventListener('click', () => {
 });
 
 /* ---------- Nebeneinander ---------- */
-const prozent = (rows: Uebertritt[]) => {
-  const summe = rows.reduce((a, r) => a + r[1], 0);
-  return rows.map((r) => ({ r, pct: Math.round((r[1] / summe) * 100) }));
-};
-
 /** Aufklappbare Liste der Schulen mit höchstens 6 Kindern, die Namen werden erst beim ersten Öffnen geladen. */
 function kleineSchulen(n: number, ids: () => Promise<string[]>, mitSumme: boolean) {
   const det = el('details', { class: 'cmp-klein' }, el('summary', { textContent: `${mitSumme ? 'dazu ' : ''}${n} ${n === 1 ? 'Schule' : 'Schulen'} mit bis zu 6 Kindern` }));
@@ -583,7 +588,7 @@ loadKern()
     state.filter = filterFromParams(p, d.kategorien);
     baueFilterChips($('chips'), d.kategorien, state.filter, render);
     const r = Number(p.get('r'));
-    if (r > 0 && r <= 50) state.r = r;
+    if (RADIEN.includes(r)) state.r = r;
     baueRadius();
     const lon = Number(p.get('lon'));
     const lat = Number(p.get('lat'));
@@ -623,7 +628,7 @@ loadKern()
     }
     const s = p.get('s') as SortKey | null;
     if (s && SPALTEN.some((c) => c.key === s)) {
-      state.sort = { key: s, dir: standardRichtung(s) };
+      state.sort = { key: s, dir: (standardRichtung(s) * (p.get('sr') === '1' ? -1 : 1)) as 1 | -1 };
       sortEl.value = s;
     }
     render();

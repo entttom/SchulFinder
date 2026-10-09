@@ -86,7 +86,7 @@ export type EinzugKennzahlen = {
  * Zwei Korrekturen, weil die Kacheln nur Klassen und Zellränder zeigen:
  * - Pixel auf den weißen Zellrändern haben keine Klassenfarbe. Wir rechnen sie gleichmäßig hoch.
  * - "20 und mehr" ist nach oben offen. Ist die Schülerzahl bekannt, wählen wir die Klassenmitte so,
- *   dass die Summe der Kinder zur Schülerzahl passt (begrenzt auf 20 bis 150).
+ *   dass die Summe der Kinder zur Schülerzahl passt (begrenzt auf 25 bis 150).
  */
 export function analysiere(kacheln: Kachel[], z: number, lon: number, lat: number, schueler?: number): EinzugKennzahlen | null {
   const schule = mercator(lon, lat);
@@ -153,13 +153,15 @@ export function analysiere(kacheln: Kachel[], z: number, lon: number, lat: numbe
 
 /* ---------- Abruf im Browser ---------- */
 
-export const kachelUrl = (skz: string, z: number, x: number, y: number) => {
+/** Kartenbild der Wohnorte einer Schule; bbox in EPSG:3857 als "minx,miny,maxx,maxy" */
+export const wohnortUrl = (skz: string, bbox: string, pixel = 256) =>
+  'https://www.statistik.at/gs-atlas/ATLAS_SCHULE/wms?service=WMS&version=1.1.1&request=GetMap' +
+  `&layers=ATLAS_SCHULE:ATLAS_SCHULE_WOHNORT&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=${pixel}&height=${pixel}` +
+  `&bbox=${bbox}&viewparams=SKZ:${skz}`;
+
+const kachelUrl = (skz: string, z: number, x: number, y: number) => {
   const b = kachelBox(z, x, y);
-  return (
-    'https://www.statistik.at/gs-atlas/ATLAS_SCHULE/wms?service=WMS&version=1.1.1&request=GetMap' +
-    `&layers=ATLAS_SCHULE:ATLAS_SCHULE_WOHNORT&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256` +
-    `&bbox=${b.minx},${b.miny},${b.maxx},${b.maxy}&viewparams=SKZ:${skz}`
-  );
+  return wohnortUrl(skz, `${b.minx},${b.miny},${b.maxx},${b.maxy}`);
 };
 
 async function ladeBild(url: string, signal?: AbortSignal): Promise<ImageData> {
@@ -225,7 +227,7 @@ const PROBE_KERN_VON = 27;
 const PROBE_KERN_BIS = 33;
 /** Halbe Breite des Ausschnitts in Metern (Web Mercator, am Boden etwa 500 m in Österreich) */
 const PROBE_HALB_M = 750;
-/** So viele Pixel einer Klasse braucht es in der Umgebung, damit Ränder und Rundungen nicht zählen (ca. 1 000 m²). */
+/** So viele Pixel einer Klasse braucht es in der Umgebung, damit Ränder und Rundungen nicht zählen (ein Pixel ist am Boden etwa 17 m breit, zusammen ca. 3 000 m²). */
 const MIN_PIXEL_UMGEBUNG = 12;
 
 export type PunktKlassen = {
@@ -242,11 +244,7 @@ export type PunktKlassen = {
 export async function klassenAmPunkt(skz: string, lon: number, lat: number, signal?: AbortSignal): Promise<PunktKlassen> {
   const { x, y } = mercator(lon, lat);
   const h = PROBE_HALB_M;
-  const url =
-    'https://www.statistik.at/gs-atlas/ATLAS_SCHULE/wms?service=WMS&version=1.1.1&request=GetMap' +
-    `&layers=ATLAS_SCHULE:ATLAS_SCHULE_WOHNORT&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=${PROBE_PIXEL}&height=${PROBE_PIXEL}` +
-    `&bbox=${x - h},${y - h},${x + h},${y + h}&viewparams=SKZ:${skz}`;
-  const bild = await ladeBild(url, signal);
+  const bild = await ladeBild(wohnortUrl(skz, `${x - h},${y - h},${x + h},${y + h}`, PROBE_PIXEL), signal);
   const kern = [0, 0, 0, 0, 0];
   const alle = [0, 0, 0, 0, 0];
   for (let py = 0; py < PROBE_PIXEL; py++) {

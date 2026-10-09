@@ -128,7 +128,7 @@ npm run build  # erzeugt dist/ (eine Seite pro Schule)
 
 **Deployment**
 
-GitHub Pages über `.github/workflows/deploy.yml` (bei Push auf `main`, monatlich und manuell). In den Repository-Einstellungen unter Pages die Quelle „GitHub Actions“ wählen. Für eine eigene Domain `BASE` im Workflow auf `/` setzen.
+GitHub Pages über `.github/workflows/deploy.yml` (bei Push auf `main`, wöchentlich und manuell). In den Repository-Einstellungen unter Pages die Quelle „GitHub Actions“ wählen. Für eine eigene Domain `BASE` im Workflow auf `/` setzen.
 
 Die Screenshots in diesem README liegen in `docs/screenshots/`.
 

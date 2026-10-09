@@ -3,7 +3,7 @@ import type { GeoJSONSource, MapMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { type Daten, type Schule, adresse, fmtKurz, hatStandort, kurzName } from '../lib/types';
 import { distanceM, fmtDist, fmtNum } from '../lib/geo';
-import { einzugKennzahlen, einzugMoeglich, type EinzugKennzahlen } from '../lib/einzug';
+import { EINZUG_FARBEN, KLASSEN_TEXT, einzugKennzahlen, einzugMoeglich, wohnortUrl, type EinzugKennzahlen } from '../lib/einzug';
 import { umschalten, istGewaehlt, beiAenderung, MAX_AUSWAHL } from './auswahl';
 import { ladeAnsicht, speichereAnsicht } from './ansicht';
 import { speichereOrt } from './ort';
@@ -32,7 +32,7 @@ const state = {
   byId: new Map<string, Schule>(),
   filter: neuerFilter() as FilterState,
   selected: null as Schule | null,
-  user: null as null | { lon: number; lat: number },
+  user: null as null | { lon: number; lat: number; label?: string },
   einzug: false, // Einzugsgebiet der gewählten Schule auf der Karte zeigen
   index: undefined as SuchIndex | undefined,
 };
@@ -225,7 +225,7 @@ function startAuswahl() {
   const url = new URLSearchParams(location.search);
   const skz = url.get('skz');
   const mitDetails = url.get('d') === '1'; // vor select() lesen: select() schreibt die Adresse neu
-  if (url.get('e') === '1') state.einzug = true;
+  if (url.get('ez') === '1' || url.get('e') === '1') state.einzug = true; // e=1: ältere Links
   const gemerktSkz = ladeAnsicht()?.skz;
   // Der Standort ist nach einem Besuch von Vergleich oder Details sonst weg, die Seite wird dabei neu geladen
   const gemerkterStandort = ladeAnsicht()?.user;
@@ -272,9 +272,12 @@ const refreshList = () => {
   listRaf = requestAnimationFrame(renderList);
 };
 
-function bezugspunkt() {
+/** Der eigene Standort ist Bezugspunkt, solange er im Kartenausschnitt liegt, sonst die Kartenmitte. */
+function bezugspunkt(): { lon: number; lat: number; label: string; eigen: boolean } {
+  const u = state.user;
+  if (u && map.getBounds().contains([u.lon, u.lat])) return { lon: u.lon, lat: u.lat, label: u.label ?? 'deinen Standort', eigen: true };
   const c = map.getCenter();
-  return state.user ?? { lon: c.lng, lat: c.lat };
+  return { lon: c.lng, lat: c.lat, label: 'den Kartenausschnitt', eigen: false };
 }
 
 function renderList() {
@@ -283,7 +286,7 @@ function renderList() {
   const inView = gefiltert().filter((s) => s.lon >= b.getWest() && s.lon <= b.getEast() && s.lat >= b.getSouth() && s.lat <= b.getNorth());
   const ref = bezugspunkt();
   const n = inView.length;
-  const zuViele = n > 300 && !state.user;
+  const zuViele = n > 300 && !ref.eigen;
   const top = zuViele
     ? []
     : inView
@@ -294,11 +297,11 @@ function renderList() {
   // geschütztes Leerzeichen: "6 181 Schulen" bricht nicht mitten in der Zahl um; am Handy entfällt der Zusatz
   if (n === 0) countEl.replaceChildren('Keine Schulen', el('span', { class: 'rest', textContent: ' im Kartenausschnitt' }));
   else countEl.replaceChildren(`${fmtNum(n)}\u00a0${n === 1 ? 'Schule' : 'Schulen'}`, el('span', { class: 'rest', textContent: ' im Kartenausschnitt' }));
-  compareLink.href = vergleichsUrl(ref.lon, ref.lat, 5);
+  compareLink.href = vergleichsUrl(ref.lon, ref.lat, 5, ref.label);
 
   const rows: HTMLElement[] = [];
   if (n === 0) rows.push(el('li', { class: 'empty', textContent: 'Verschiebe die Karte oder ändere die Filter.' }));
-  else if (zuViele) rows.push(el('li', { class: 'empty', textContent: 'Suche oben einen Ort oder tippe auf das Standort-Symbol. Mit Zoomen auf der Karte erscheint die Liste ab ca. 300 Schulen.' }));
+  else if (zuViele) rows.push(el('li', { class: 'empty', textContent: 'Suche oben einen Ort oder tippe auf das Standort-Symbol. Die Liste erscheint, sobald höchstens 300 Schulen im Kartenausschnitt sind.' }));
   else {
     for (const { s, d } of top) {
       const btn = el(
@@ -311,7 +314,7 @@ function renderList() {
           el('div', { class: 't', textContent: s.name }),
           el('div', { class: 's', textContent: [s.strasse, s.gemeinde ?? s.ort, s.privat ? 'privat' : ''].filter(Boolean).join(' · ') }),
         ),
-        el('span', { class: 'd', textContent: state.user ? fmtDist(d) : s.schueler ? `${fmtNum(s.schueler)} Schüler` : '' }),
+        el('span', { class: 'd', textContent: ref.eigen ? fmtDist(d) : s.schueler ? `${fmtNum(s.schueler)} Schüler` : '' }),
       );
       btn.addEventListener('click', () => select(s.skz, true));
       rows.push(el('li', {}, btn));
@@ -325,8 +328,8 @@ map.on('moveend', () => {
   merkeAnsicht();
 });
 
-function vergleichsUrl(lon: number, lat: number, r: number) {
-  const p = new URLSearchParams({ lon: lon.toFixed(5), lat: lat.toFixed(5), r: String(r) });
+function vergleichsUrl(lon: number, lat: number, r: number, ort: string) {
+  const p = new URLSearchParams({ lon: lon.toFixed(5), lat: lat.toFixed(5), o: ort, r: String(r) });
   filterToParams(state.filter, p);
   return `${base}vergleich/?${p}`;
 }
@@ -334,6 +337,8 @@ function vergleichsUrl(lon: number, lat: number, r: number) {
 /* ---------- Bottom Sheet ---------- */
 type SheetZustand = 'min' | 'peek' | 'full';
 const setSheet = (st: SheetZustand) => (sheet.dataset.state = st);
+/** Tippen oder Taste am Griff: klein -> mittel -> groß -> mittel */
+const naechsterZustand = (): SheetZustand => (sheet.dataset.state === 'peek' ? 'full' : 'peek');
 const grab = $('grab');
 
 /** Zielhöhen in Pixel: nur Kopfzeile, mittel (Liste sichtbar), groß. */
@@ -366,16 +371,14 @@ for (const bereich of ziehbereiche) {
     sheet.style.transition = 'none';
     sheet.style.height = `${Math.max(h.min * 0.85, Math.min(h.full, zug.startH - dy))}px`;
   });
-  const ende = (e: PointerEvent) => {
+  const ende = () => {
     if (!zug) return;
     const z = zug;
     zug = null;
     const h = sheetHoehen();
     let ziel: SheetZustand;
     if (!z.bewegt) {
-      // Tippen: klein -> mittel -> groß -> mittel
-      const jetzt = sheet.dataset.state as SheetZustand;
-      ziel = jetzt === 'min' ? 'peek' : jetzt === 'peek' ? 'full' : 'peek';
+      ziel = naechsterZustand();
     } else {
       // Zielzustand: nächste Höhe, mit dem Schwung des Wischens vorausgerechnet
       const projiziert = sheet.offsetHeight - z.v * 180;
@@ -385,7 +388,6 @@ for (const bereich of ziehbereiche) {
     void sheet.offsetHeight; // aktuelle Höhe festhalten, dann weich zum Ziel
     sheet.style.height = '';
     setSheet(ziel);
-    void e;
   };
   bereich.addEventListener('pointerup', ende);
   bereich.addEventListener('pointercancel', ende);
@@ -393,7 +395,7 @@ for (const bereich of ziehbereiche) {
 // Tastatur: Enter oder Leertaste am Griff
 grab.addEventListener('click', (e) => {
   if (e.detail !== 0) return; // echte Tipps behandelt pointerup
-  setSheet(sheet.dataset.state === 'full' ? 'peek' : sheet.dataset.state === 'peek' ? 'min' : 'peek');
+  setSheet(naechsterZustand());
 });
 
 /* ---------- Auswahl ---------- */
@@ -417,16 +419,8 @@ const chevron = '<svg class="ico chev" viewBox="0 0 24 24" aria-hidden="true"><p
 
 /* ---------- Einzugsgebiet (Wohnort der Kinder, 500-m-Zellen) ---------- */
 // Kartenbilder des Schulatlas der Statistik Austria. Für Schulen ohne Schülerzahlen gibt es keine Zellen.
-const EINZUG_STUFEN = [
-  { farbe: '#fed976', text: 'unter 3' },
-  { farbe: '#feb24c', text: '3–5' },
-  { farbe: '#fd8d3c', text: '6–11' },
-  { farbe: '#f03b20', text: '12–19' },
-  { farbe: '#bd0026', text: '20 und mehr' },
-];
-const einzugUrl = (skz: string) =>
-  'https://www.statistik.at/gs-atlas/ATLAS_SCHULE/wms?service=WMS&version=1.1.1&request=GetMap' +
-  `&layers=ATLAS_SCHULE:ATLAS_SCHULE_WOHNORT&styles=&format=image/png&transparent=true&srs=EPSG:3857&width=256&height=256&bbox={bbox-epsg-3857}&viewparams=SKZ:${skz}`;
+// MapLibre setzt den Ausschnitt jeder Kachel selbst ein
+const einzugUrl = (skz: string) => wohnortUrl(skz, '{bbox-epsg-3857}');
 
 function entferneEinzug() {
   if (map.getLayer('einzug')) map.removeLayer('einzug');
@@ -489,7 +483,7 @@ function baueEinzugsteil(s: Schule) {
     'div',
     { class: 'einzug-legende' },
     el('div', { class: 'el-titel', textContent: 'Wohnort der Kinder, Anzahl pro 500-m-Zelle' }),
-    el('div', { class: 'el-stufen' }, ...EINZUG_STUFEN.map((x) => el('span', {}, el('i', { style: `background:${x.farbe}` }), x.text))),
+    el('div', { class: 'el-stufen' }, ...EINZUG_FARBEN.map((farbe, i) => el('span', {}, el('i', { style: `background:${farbe}` }), KLASSEN_TEXT[i]))),
     el('div', { class: 'el-kennzahlen' }),
   );
   legende.hidden = !state.einzug;
@@ -548,7 +542,7 @@ function select(skz: string, fly: boolean | 'jump') {
     el(
       'div',
       { class: 'card-extras' },
-      el('a', { class: 'card-link', href: vergleichsUrl(s.lon, s.lat, 5), textContent: 'Umgebung vergleichen →' }),
+      el('a', { class: 'card-link', href: vergleichsUrl(s.lon, s.lat, 5, s.name), textContent: 'Umgebung vergleichen →' }),
       ...einzug.slice(0, 1),
     ),
     ...einzug.slice(1),
@@ -583,7 +577,7 @@ function setzeLabelFilter(skz: string | null) {
 function schreibeUrl() {
   const s = state.selected;
   if (!s) return history.replaceState(null, '', location.pathname);
-  history.replaceState(null, '', `${location.pathname}?skz=${s.skz}${cardEl.classList.contains('offen') ? '&d=1' : ''}${state.einzug && einzugMoeglich(s) ? '&e=1' : ''}`);
+  history.replaceState(null, '', `${location.pathname}?skz=${s.skz}${cardEl.classList.contains('offen') ? '&d=1' : ''}${state.einzug && einzugMoeglich(s) ? '&ez=1' : ''}`);
 }
 
 /** Karte wachsen lassen und die Details darin zeigen (oder wieder einklappen). */
@@ -733,7 +727,7 @@ async function zurAdresse(text: string) {
   }
   if (lauf !== adressLauf) return;
   if (!t) return fehler('Diese Adresse wurde nicht gefunden. Prüfe Schreibweise und Ort.', 'Adresse nicht gefunden');
-  state.user = { lon: t.lon, lat: t.lat };
+  state.user = { lon: t.lon, lat: t.lat, label: text };
   speichereOrt({ lon: t.lon, lat: t.lat, label: text }); // der Vergleich startet dann gleich dort
   zeigeStandortMarker(state.user);
   deselect();
@@ -744,7 +738,7 @@ async function zurAdresse(text: string) {
 async function zumStandort() {
   countEl.textContent = 'Standort wird ermittelt …';
   try {
-    state.user = await standortErmitteln();
+    state.user = { ...(await standortErmitteln()), label: 'deinen Standort' };
   } catch (err) {
     // Die lange Erklärung steht im Listenbereich, die Kopfzeile bleibt kurz
     countEl.textContent = 'Kein Standort';
@@ -772,7 +766,8 @@ loadKern()
     state.index = new SuchIndex(d.schulen);
     // Filter aus dem Link, sonst die zuletzt gemerkten
     const url = new URLSearchParams(location.search);
-    const mitFilter = ['k', 'e', 'b'].some((k) => url.has(k));
+    // e=1 ist kein Erhalter, sondern stammt aus älteren Links zum Einzugsgebiet
+    const mitFilter = url.has('k') || url.has('b') || (url.has('e') && url.get('e') !== '1');
     state.filter = filterFromParams(mitFilter ? url : new URLSearchParams(ladeAnsicht()?.filter ?? ''), d.kategorien);
     baueFilterChips($('chips'), d.kategorien, state.filter, aktualisieren);
     $('schuljahr').textContent = `Schuljahr ${d.schuljahr}`;

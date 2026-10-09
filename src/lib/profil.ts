@@ -1,22 +1,20 @@
 import type { Schule } from './types';
 
-/** Gröbere Zusammenfassung der Schularten für die Übersicht in Prozent. */
-export type Profil = { id: string; label: string; kat: string };
-
-export const PROFILE: Profil[] = [
-  { id: 'vs', label: 'Volksschule', kat: 'vs' },
-  { id: 'ms', label: 'Mittelschule', kat: 'ms' },
-  { id: 'ahs', label: 'Gymnasium (AHS)', kat: 'ahs' },
-  { id: 'ps', label: 'Polytechnische Schule', kat: 'ps' },
-  { id: 'bhs', label: 'BHS (HTL, HAK, HLW u. a.)', kat: 'bmhs' },
-  { id: 'bs', label: 'Berufsschule', kat: 'bs' },
-  { id: 'lf', label: 'Land- und Forstwirtschaft', kat: 'lf' },
-  { id: 'ss', label: 'Sonderschule', kat: 'ss' },
-  { id: 'gk', label: 'Gesundheit und Pflege', kat: 'gk' },
-  { id: 'ph', label: 'Pädagogische Hochschule', kat: 'ph' },
-  { id: 'musik', label: 'Musikschule', kat: 'musik' },
-  { id: 'sonst', label: 'Sonstige', kat: 'sonst' },
-];
+/** Gröbere Zusammenfassung der Schularten für die Übertritte in Prozent: Profil-ID -> Beschriftung. */
+const PROFILE: Record<string, string> = {
+  vs: 'Volksschule',
+  ms: 'Mittelschule',
+  ahs: 'Gymnasium (AHS)',
+  ps: 'Polytechnische Schule',
+  bhs: 'BHS (HTL, HAK, HLW u. a.)',
+  bs: 'Berufsschule',
+  lf: 'Land- und Forstwirtschaft',
+  ss: 'Sonderschule',
+  gk: 'Gesundheit und Pflege',
+  ph: 'Pädagogische Hochschule',
+  musik: 'Musikschule',
+  sonst: 'Sonstige',
+};
 
 // Bildungskompass-Schulart-ID -> Profil
 const ART: Record<string, string> = {
@@ -30,5 +28,4 @@ const KAT: Record<string, string> = { bmhs: 'bhs' };
 export const profilOf = (s: Pick<Schule, 'artId' | 'kat'>): string =>
   (s.artId && ART[s.artId]) || KAT[s.kat] || s.kat;
 
-export const profilLabel = (id: string) => PROFILE.find((p) => p.id === id)?.label ?? id;
-export const profilKat = (id: string) => PROFILE.find((p) => p.id === id)?.kat ?? 'sonst';
+export const profilLabel = (id: string) => PROFILE[id] ?? id;
