@@ -1,4 +1,7 @@
 ---
+// Schriften liegen auf dem eigenen Server (kein Abruf bei Google)
+import '@fontsource-variable/inter/wght.css';
+import '@fontsource-variable/fraunces/opsz.css';
 import '../styles/global.css';
 interface Props { title: string; description?: string; fab?: boolean }
 const { title, description = 'Schulen in Österreich auf der Karte finden: Volksschulen, Mittelschulen, Gymnasien und mehr.', fab = true } = Astro.props;
@@ -11,6 +14,9 @@ const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content={description} />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#faf8f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0e1c" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href={`data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b47f0"/><stop offset="1" stop-color="#8a3ff0"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#g)"/><path d="M16 7 4 13.5l12 6.5 12-6.5L16 7z" fill="#fff"/><path d="M9 17v5c0 1.8 3.1 3.5 7 3.5s7-1.7 7-3.5v-5l-7 3.8z" fill="#fff" opacity=".75"/></svg>')}`} />
     <title>{title}</title>
     <script is:inline>
       try { var t = localStorage.getItem('schulfinder-theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}

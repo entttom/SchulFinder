@@ -14,6 +14,8 @@
     "copy:maplibre": "node scripts/copy-maplibre.mjs"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/inter": "^5.3.0",
     "astro": "^7.3.8",
     "maplibre-gl": "^6.13.0",
     "proj4": "^2.22.0"

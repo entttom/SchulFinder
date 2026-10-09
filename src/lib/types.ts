@@ -78,6 +78,14 @@ const KURZ: Record<string, string> = {
 };
 export const fmtKurz = (kat: string) => KURZ[kat] ?? '·';
 
+/** Farbe je Schulkategorie: Punkte auf der Karte, Kürzel in Listen, Filter-Chips, Kopf der Detailseite. */
+const KAT_FARBEN: Record<string, string> = {
+  vs: '#f0862a', ms: '#0ea47a', ahs: '#4a55e8', ps: '#0f9fb8', bs: '#7a6a58', bmhs: '#a43fd0',
+  ss: '#e2457f', lf: '#6aa516', gk: '#e5484d', ph: '#6b3fd4', musik: '#c2367a', sonst: '#7d8396',
+};
+export const katFarbe = (kat: string) => KAT_FARBEN[kat] ?? KAT_FARBEN.sonst;
+export const KAT_FARBEN_LISTE = Object.entries(KAT_FARBEN);
+
 /** Schulstufen-Code der Abgangsschule im Schulatlas -> Beschriftung. */
 export const stufeLabel = (code: string) =>
   code === '01' ? 'Nach der 4. Schulstufe' : ['02a', '05', '05a'].includes(code) ? 'Nach der 8. Schulstufe' : 'Bei sonstigen Wechseln';

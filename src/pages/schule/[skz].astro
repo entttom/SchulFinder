@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { kern, details, uebertritte, uebertritteKlein, ergebnisse } from '../../lib/data';
-import { adresse, bundeslandOf, klassengroesse, maedchenAnteil, stufeLabel, hatStandort, drittelImSatz, drittelKurz, HINWEIS_AUSSCHNITT, type Schule, type Uebertritt, type Drittel } from '../../lib/types';
+import { adresse, bundeslandOf, katFarbe, klassengroesse, maedchenAnteil, stufeLabel, hatStandort, drittelImSatz, drittelKurz, HINWEIS_AUSSCHNITT, type Schule, type Uebertritt, type Drittel } from '../../lib/types';
 import { fmtNum } from '../../lib/geo';
 import { profilOf, profilLabel } from '../../lib/profil';
 import ThemeToggle from '../../components/ThemeToggle.astro';
@@ -91,11 +91,16 @@ const title = `${s.name}${ortName ? `, ${ortName}` : ''} – SchulFinder`;
 const bl = bundeslandOf(s);
 ---
 <Base title={title} description={`${kategorie}${ortName ? ` in ${ortName}` : ''} (Schulkennzahl ${s.skz}): Schülerzahl, Klassen, Kontakt und Übertritte.`}>
-  <main class="detail">
-    <a class="back" data-zurueck data-nur-seite href={base}>← Zur Karte</a>
-    <ThemeToggle nurSeite />
-    <h1 data-nur-seite>{s.name}</h1>
-    <p class="sub" data-nur-seite>{detail?.art ?? kategorie}{s.gemeinde || s.ort ? ` · ${s.gemeinde ?? s.ort}` : ''}</p>
+  <main class="detail" style={`--kat:${katFarbe(s.kat)}`}>
+    <header class="d-hero" data-nur-seite>
+      <div class="d-hero-bar">
+        <a class="back" data-zurueck href={base}>← Zur Karte</a>
+        <ThemeToggle />
+      </div>
+      <p class="kat-badge"><i aria-hidden="true"></i>{detail?.art ?? kategorie}</p>
+      <h1>{s.name}</h1>
+      <p class="sub">{[s.gemeinde ?? s.ort, bl].filter(Boolean).join(' · ')}</p>
+    </header>
     <div class="tags">
       <span class="tag">{s.privat ? 'privat' : 'öffentlich'}</span>
       {s.erhalter && <span class="tag">Erhalter: {s.erhalter}</span>}
