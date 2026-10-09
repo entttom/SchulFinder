@@ -108,10 +108,7 @@ const bl = bundeslandOf(s);
         <svg class="ico vt-check" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
         <span class="vt-text">Zum Vergleich</span>
       </button>
-      {detail?.tel && <a class="btn primary" href={`tel:${detail.tel.replace(/[^+\d]/g, '')}`}>Anrufen</a>}
-      {detail?.mail && <a class="btn" href={`mailto:${detail.mail}`}>E-Mail</a>}
       {detail?.web && <a class="btn" href={detail.web} target="_blank" rel="noopener noreferrer">Website</a>}
-      {ziel && <a class="btn" href={`https://www.google.com/maps/dir/?api=1&destination=${ziel}`} target="_blank" rel="noopener">Route</a>}
     </div>
 
     <p class="muted" id="vergleichHinweis" data-nur-seite role="status" hidden></p>
@@ -193,6 +190,17 @@ const bl = bundeslandOf(s);
       <section>
         <h2>Chancenbonus</h2>
         <p class="muted">Der Bildungskompass kennzeichnet diese Schule als Standort des Chancenbonus-Programms. Das Programm des Bildungsministeriums gibt Pflichtschulen in sozial herausfordernden Lagen zusätzliches Personal. Das Kennzeichen sagt nichts über die Qualität des Unterrichts aus.</p>
+      </section>
+    )}
+
+    {(detail?.tel || detail?.mail || ziel) && (
+      <section>
+        <h2>Kontakt und Anfahrt</h2>
+        <div class="actions">
+          {detail?.tel && <a class="btn primary" href={`tel:${detail.tel.replace(/[^+\d]/g, '')}`}>Anrufen</a>}
+          {detail?.mail && <a class="btn" href={`mailto:${detail.mail}`}>E-Mail</a>}
+          {ziel && <a class="btn" href={`https://www.google.com/maps/dir/?api=1&destination=${ziel}`} target="_blank" rel="noopener">Route</a>}
+        </div>
       </section>
     )}
 
