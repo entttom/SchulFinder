@@ -295,6 +295,12 @@ dialog.cmp:focus { outline: none; }
 .cmp-erg .erg-skala { gap: 3px; }
 .cmp-erg .erg-skala i { height: 8px; border-radius: 4px; }
 .cmp-erg .erg-wert { font-size: 13px; color: var(--text); font-weight: 500; }
+.cmp-klein summary { cursor: pointer; color: var(--accent); font-size: 12.5px; padding: 2px 0; }
+.cmp-klein-liste { list-style: none; margin: 4px 0 0; padding: 0; }
+.cmp-klein-liste li { margin: 0; padding: 8px 0; border-top: 1px solid var(--line); }
+.cmp-klein-liste li:last-child { padding-bottom: 2px; }
+.cmp-klein-liste a { display: block; font-size: 13px; }
+.cmp-klein-liste small { display: block; color: var(--text-2); font-size: 12px; }
 .cmp-kontakt { display: grid; gap: 4px; overflow-wrap: anywhere; }
 .cmp-scroll .credit { border: 0; }
 

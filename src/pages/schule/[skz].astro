@@ -197,7 +197,7 @@ const bl = bundeslandOf(s);
       <section>
         <h2>Kontakt und Anfahrt</h2>
         <div class="actions">
-          {detail?.tel && <a class="btn primary" href={`tel:${detail.tel.replace(/[^+\d]/g, '')}`}>Anrufen</a>}
+          {detail?.tel && <a class="btn" href={`tel:${detail.tel.replace(/[^+\d]/g, '')}`}>Anrufen</a>}
           {detail?.mail && <a class="btn" href={`mailto:${detail.mail}`}>E-Mail</a>}
           {ziel && <a class="btn" href={`https://www.google.com/maps/dir/?api=1&destination=${ziel}`} target="_blank" rel="noopener">Route</a>}
         </div>

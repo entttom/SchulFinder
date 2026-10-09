@@ -9,7 +9,7 @@ import { lade, speichere, MAX_AUSWAHL } from './auswahl';
 import { ladeOrt, speichereOrt, anzeigeText } from './ort';
 import { ladeAnsicht } from './ansicht';
 import {
-  $, base, el, loadKern, loadDetails, loadUebertritte, loadErgebnisse, baueFilterChips, neuerFilter, filterFromParams, filterToParams,
+  $, base, el, loadKern, loadDetails, loadUebertritte, loadUebertritteKlein, loadErgebnisse, baueFilterChips, neuerFilter, filterFromParams, filterToParams,
   passt, sucheAnbinden, standortErmitteln, type FilterState,
 } from './shared';
 
@@ -310,7 +310,34 @@ const prozent = (rows: Uebertritt[]) => {
   return rows.map((r) => ({ r, pct: Math.round((r[1] / summe) * 100) }));
 };
 
-function uebertrittListe(rows: Uebertritt[] | undefined, klein: Record<string, number> | undefined) {
+/** Aufklappbare Liste der Schulen mit höchstens 6 Kindern, die Namen werden erst beim ersten Öffnen geladen. */
+function kleineSchulen(n: number, ids: () => Promise<string[]>, mitSumme: boolean) {
+  const det = el('details', { class: 'cmp-klein' }, el('summary', { textContent: `${mitSumme ? 'dazu ' : ''}${n} ${n === 1 ? 'Schule' : 'Schulen'} mit bis zu 6 Kindern` }));
+  det.addEventListener('toggle', async () => {
+    if (!det.open || det.querySelector('ul')) return;
+    const ul = el('ul', { class: 'cmp-klein-liste' }, el('li', { class: 'muted', textContent: 'Lade …' }));
+    det.append(ul);
+    try {
+      const schulen = (await ids()).map((id) => state.byId.get(id)).filter(Boolean) as Schule[];
+      schulen.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+      ul.replaceChildren(
+        ...schulen.map((z) => {
+          const a = el('a', { href: `${base}schule/${z.skz}/`, textContent: z.name });
+          return el('li', {}, a, el('small', { textContent: adresse(z) }));
+        }),
+      );
+    } catch {
+      ul.replaceChildren(el('li', { class: 'muted', textContent: 'Die Schulen konnten nicht geladen werden.' }));
+    }
+  });
+  return det;
+}
+
+function uebertrittListe(
+  rows: Uebertritt[] | undefined,
+  klein: Record<string, number> | undefined,
+  kleinIds: (code: string) => Promise<string[]>,
+) {
   if (!rows?.length && !klein) return el('span', { class: 'muted', textContent: '–' });
   const ul = el('ul', { class: 'cmp-ue' });
   const gruppen = new Map<string, Uebertritt[]>();
@@ -328,12 +355,8 @@ function uebertrittListe(rows: Uebertritt[] | undefined, klein: Record<string, n
       ul.append(el('li', {}, `${profilLabel(id)} `, el('b', { textContent: `${Math.round((n / summe) * 100)}\u00a0%` })));
     }
     const k = klein?.[code] ?? 0;
-    ul.append(
-      el('li', {
-        class: 'ue-h',
-        textContent: `${summe > 0 ? `${summe} erfasste Wechsel` : 'keine einzeln ausgewiesenen Wechsel'}${k ? `, dazu ${k} ${k === 1 ? 'Schule' : 'Schulen'} mit bis zu 6 Kindern` : ''}`,
-      }),
-    );
+    ul.append(el('li', { class: 'ue-h', textContent: summe > 0 ? `${summe} erfasste Wechsel` : 'keine einzeln ausgewiesenen Wechsel' }));
+    if (k) ul.append(el('li', {}, kleineSchulen(k, () => kleinIds(code), summe > 0)));
   }
   return ul;
 }
@@ -382,8 +405,8 @@ async function zeigeVergleich() {
     { label: 'Chancen\u00adbonus', cell: (s) => (s.bonus ? 'Ja' : 'Nein') },
     { label: 'Deutsch (Lesen)', cell: (s) => ergebnisZelle(s, 0) },
     { label: 'Mathematik', cell: (s) => ergebnisZelle(s, 1) },
-    { label: 'Abgänge zu', cell: (s) => uebertrittListe(ue.aus[s.skz], ue.kleinAus?.[s.skz]) },
-    { label: 'Zugänge von', cell: (s) => uebertrittListe(ue.zu[s.skz], ue.kleinZu?.[s.skz]) },
+    { label: 'Abgänge zu', cell: (s) => uebertrittListe(ue.aus[s.skz], ue.kleinAus?.[s.skz], async (c) => (await loadUebertritteKlein()).aus[s.skz]?.[c] ?? []) },
+    { label: 'Zugänge von', cell: (s) => uebertrittListe(ue.zu[s.skz], ue.kleinZu?.[s.skz], async (c) => (await loadUebertritteKlein()).zu[s.skz]?.[c] ?? []) },
     {
       label: 'Kontakt',
       cell: (s) => {

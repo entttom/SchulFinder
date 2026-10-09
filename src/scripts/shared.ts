@@ -30,6 +30,8 @@ const cached = <T>(file: string) => {
 export const loadKern = cached<Daten>('schulen.json');
 export const loadDetails = cached<Record<string, Detail>>('details.json');
 export const loadUebertritte = cached<Uebertritte>('uebertritte.json');
+export type KleinNamen = { aus: Record<string, Record<string, string[]>>; zu: Record<string, Record<string, string[]>> };
+export const loadUebertritteKlein = cached<KleinNamen>('uebertritte-klein.json');
 export const loadErgebnisse = cached<Ergebnisse>('ergebnisse.json');
 
 /* ---------- Filter ---------- */

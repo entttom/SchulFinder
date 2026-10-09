@@ -127,12 +127,14 @@ if (withUebertritte) {
     if (klein.length) kleinAus[skz] = klein;
   }
   const kleinZu = invertKlein(kleinAus);
-  // Im Browser nur die Anzahl kleiner Wechsel, die Namen der Zielschulen nur für die Detailseiten beim Bauen
+  // uebertritte.json enthält nur die Anzahl kleiner Wechsel, die Zielschulen stehen in uebertritte-klein.json
   await writeFile(
     'public/data/uebertritte.json',
     JSON.stringify({ aus: out, zu: invertUebertritte(out), kleinAus: zaehlePerStufe(kleinAus), kleinZu: zaehlePerStufe(Object.fromEntries(Object.entries(kleinZu).map(([z, g]) => [z, Object.entries(g).flatMap(([typ, q]) => q.map((x) => [x, typ]))])) ) }),
   );
-  await writeFile('build-data/uebertritte-klein.json', JSON.stringify({ aus: Object.fromEntries(Object.entries(kleinAus).map(([k, l]) => [k, l.reduce((m, [z, t]) => ((m[t] ??= []).push(z), m), {})])), zu: kleinZu }));
+  const kleinNamen = JSON.stringify({ aus: Object.fromEntries(Object.entries(kleinAus).map(([k, l]) => [k, l.reduce((m, [z, t]) => ((m[t] ??= []).push(z), m), {})])), zu: kleinZu });
+  await writeFile('build-data/uebertritte-klein.json', kleinNamen);
+  await writeFile('public/data/uebertritte-klein.json', kleinNamen); // für den Vergleich, wird erst beim Aufklappen geladen
   console.log(`Übertritte: ${Object.keys(out).length} Schulen mit ausgewiesenen Abgängen, ${Object.keys(kleinAus).length} mit kleinen Wechseln (je höchstens 6 Kinder)`);
 }
 
