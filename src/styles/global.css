@@ -167,6 +167,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .btn.small { min-height: 36px; padding: 0 14px; font-size: 14px; flex: none; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .card-actions .btn { flex: 1; }
+.card-head p.art { margin: 0 0 4px; color: var(--accent); font-size: 13px; font-weight: 500; }
 .card-head .facts { color: var(--text); font-weight: 500; }
 
 /* ---------- Karten-Elemente ---------- */
@@ -478,6 +479,10 @@ dialog.cmp:focus { outline: none; }
 .card-head { flex: none; }
 .card-head p { margin: 0 0 4px; }
 .card-head .facts { margin-bottom: 12px; }
+.card-pager { flex: none; display: flex; align-items: center; background: var(--bg-2); border-radius: 12px; margin: 0 0 10px; }
+.pager-btn { flex: none; width: 44px; height: 40px; border: 0; background: transparent; color: var(--text); border-radius: 12px; display: grid; place-items: center; cursor: pointer; }
+.pager-btn:active { background: var(--line); }
+.pager-text { flex: 1; text-align: center; font-size: 13px; color: var(--text-2); }
 .card-actions { flex: none; display: flex; gap: 8px; }
 .card-actions .btn { flex: 1; min-width: 0; padding: 0 12px; white-space: nowrap; }
 .card .vergleich-toggle { width: auto; margin: 0; }

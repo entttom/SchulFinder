@@ -69,7 +69,9 @@ const atlas = await load('atlas.json', async () => {
 const schulen = mergeSources(bk, atlas);
 const { kern, details } = splitKernDetail(schulen);
 const meta = { abgerufen: new Date().toISOString().slice(0, 10), schuljahr: '2024/25' };
-await writeFile('public/data/schulen.json', JSON.stringify({ ...meta, kategorien: KATEGORIEN, schulen: kern }));
+// Schulart-ID -> Name, damit Karte und Vergleich die Schulart ohne die Detaildaten zeigen können
+const arten = Object.fromEntries(schulen.filter((x) => x.artId && x.art).map((x) => [x.artId, x.art]));
+await writeFile('public/data/schulen.json', JSON.stringify({ ...meta, kategorien: KATEGORIEN, arten, schulen: kern }));
 await writeFile('public/data/details.json', JSON.stringify(details));
 const count = (f) => schulen.filter(f).length;
 console.log(

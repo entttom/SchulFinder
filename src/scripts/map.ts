@@ -32,6 +32,7 @@ const state = {
   byId: new Map<string, Schule>(),
   filter: neuerFilter() as FilterState,
   selected: null as Schule | null,
+  gruppe: [] as string[], // Schulen am selben Standort, zwischen denen man in der Karte blättert
   user: null as null | { lon: number; lat: number; label?: string },
   einzug: false, // Einzugsgebiet der gewählten Schule auf der Karte zeigen
   index: undefined as SuchIndex | undefined,
@@ -490,10 +491,51 @@ function baueEinzugsteil(s: Schule) {
   return [chip, legende];
 }
 
+/** Genaue Schulart ("Mittelschule"), sonst die Kategorie; für Sonstige entfällt die Angabe. */
+function schulart(s: Schule): string {
+  const art = s.artId ? state.daten?.arten?.[s.artId] : undefined;
+  return art ?? (s.kat === 'sonst' ? '' : state.daten?.kategorien.find((k) => k.id === s.kat)?.label ?? '');
+}
+
+/** Schulen, die am selben Standort oder fast übereinander liegen (Schulzentrum, Gebäude mit mehreren Schulen). */
+const NACHBAR_M = 40;
+function schulenAmStandort(s: Schule): string[] {
+  const nah = state.mitStandort.filter((t) => t.skz === s.skz || distanceM(s.lon, s.lat, t.lon, t.lat) <= NACHBAR_M);
+  // Reihenfolge der Schularten: Volksschule, Mittelschule, Gymnasium, höhere Schulen usw., dann nach Name
+  const rang = (t: Schule) => state.daten?.kategorien.findIndex((k) => k.id === t.kat) ?? 0;
+  return nah.length > 1 ? nah.sort((a, b) => rang(a) - rang(b) || a.name.localeCompare(b.name, 'de') || a.skz.localeCompare(b.skz)).map((t) => t.skz) : [];
+}
+
+/** Zeile zum Blättern: bleibt die Karte offen (auch mit Details), nur die Schule wechselt. */
+function blaetterZeile(s: Schule): HTMLElement | null {
+  const n = state.gruppe.length;
+  if (n < 2) return null;
+  const i = Math.max(0, state.gruppe.indexOf(s.skz));
+  const knopf = (richtung: -1 | 1) => {
+    const b = el('button', { type: 'button', class: 'pager-btn' });
+    b.setAttribute('aria-label', richtung < 0 ? 'Vorherige Schule am Standort' : 'Nächste Schule am Standort');
+    b.innerHTML = `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${richtung < 0 ? 'M15 6l-6 6 6 6' : 'M9 6l6 6-6 6'}"/></svg>`;
+    b.addEventListener('click', () => {
+      const offen = cardEl.classList.contains('offen');
+      select(state.gruppe[(i + richtung + n) % n], true);
+      if (offen) void setzeDetails(true, false);
+    });
+    return b;
+  };
+  return el(
+    'div',
+    { class: 'card-pager', role: 'group', ariaLabel: 'Schulen am selben Standort' },
+    knopf(-1),
+    el('span', { class: 'pager-text', textContent: `${i + 1} von ${n} Schulen am Standort` }),
+    knopf(1),
+  );
+}
+
 function select(skz: string, fly: boolean | 'jump') {
   const s = state.byId.get(skz);
   if (!s || !hatStandort(s)) return;
   state.selected = s;
+  if (!state.gruppe.includes(s.skz)) state.gruppe = schulenAmStandort(s);
   (map.getSource('sel') as GeoJSONSource).setData({
     type: 'FeatureCollection',
     features: [{ type: 'Feature', geometry: { type: 'Point', coordinates: [s.lon, s.lat] }, properties: { name: kurzName(s.name, 40) } }],
@@ -542,9 +584,11 @@ function select(skz: string, fly: boolean | 'jump') {
       'div',
       { class: 'card-head' },
       Object.assign(el('h2', { textContent: kurzName(s.name, 70) }), { title: s.name }),
+      ...(schulart(s) ? [el('p', { class: 'art', textContent: schulart(s) })] : []),
       el('p', { textContent: adresse(s) }),
       ...(fakten.length ? [el('p', { class: 'facts', textContent: fakten.join(' · ') })] : []),
     ),
+    ...[blaetterZeile(s)].filter((z): z is HTMLElement => !!z),
     el('div', { class: 'card-actions' }, detailsBtn, waehlKnopf(s.skz)),
     el(
       'div',
@@ -677,6 +721,7 @@ function waehlKnopf(skz: string) {
 function deselect() {
   if (!state.selected) return;
   state.selected = null;
+  state.gruppe = [];
   cardEl.hidden = true;
   cardEl.classList.remove('offen');
   cardEl.style.height = '';

@@ -27,6 +27,8 @@ export type Daten = {
   abgerufen: string;
   schuljahr: string;
   kategorien: Kategorie[];
+  /** Schulart-ID -> Name der Schulart */
+  arten?: Record<string, string>;
   schulen: Schule[];
 };
 
