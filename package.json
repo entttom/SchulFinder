@@ -1,0 +1,24 @@
+{
+  "name": "schulfinder",
+  "type": "module",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "data": "node scripts/import.mjs",
+    "test": "node --test \"scripts/**/*.test.mjs\"",
+    "dev": "npm run copy:maplibre && astro dev",
+    "dev:handy": "npm run copy:maplibre && DEV_HTTPS=1 astro dev --host",
+    "build": "npm run copy:maplibre && astro build",
+    "preview": "astro preview",
+    "serve:handy": "npm run build && node scripts/serve-https.mjs",
+    "copy:maplibre": "node scripts/copy-maplibre.mjs"
+  },
+  "dependencies": {
+    "astro": "^7.3.8",
+    "maplibre-gl": "^6.13.0",
+    "proj4": "^2.22.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0"
+  }
+}

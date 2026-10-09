@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.astro/
+.DS_Store
+.claude/
+
+# erzeugte Daten
+.cache/
+public/data/
+public/maplibre/

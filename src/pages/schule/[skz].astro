@@ -1,0 +1,192 @@
+---
+import Base from '../../layouts/Base.astro';
+import { kern, details, uebertritte, ergebnisse } from '../../lib/data';
+import { adresse, bundeslandOf, klassengroesse, maedchenAnteil, stufeLabel, hatStandort, drittelImSatz, drittelKurz, HINWEIS_AUSSCHNITT, type Schule, type Uebertritt, type Drittel } from '../../lib/types';
+import { fmtNum } from '../../lib/geo';
+import { profilOf, profilLabel } from '../../lib/profil';
+import UebertrittBlock, { type Gruppe } from '../../components/UebertrittBlock.astro';
+
+export function getStaticPaths() {
+  const d = kern();
+  const det = details();
+  const ue = uebertritte();
+  const erg = ergebnisse();
+  const byId = new Map(d.schulen.map((s) => [s.skz, s]));
+  const kat = new Map(d.kategorien.map((k) => [k.id, k.label]));
+
+  return d.schulen.map((s) => ({
+    params: { skz: s.skz },
+    props: {
+      s,
+      detail: det[s.skz],
+      kategorie: kat.get(s.kat) ?? '',
+      schuljahr: d.schuljahr,
+      ergebnis: erg.daten[s.skz] ?? null,
+      zyklus: erg.zyklus,
+      volksschule: s.kat === 'vs' || (s.weitere ?? []).includes('vs'),
+      aus: (ue.aus[s.skz] ?? []).flatMap((u) => (byId.has(u[0]) ? [{ u, ziel: byId.get(u[0])! }] : [])),
+      zu: (ue.zu[s.skz] ?? []).flatMap((u) => (byId.has(u[0]) ? [{ u, ziel: byId.get(u[0])! }] : [])),
+    },
+  }));
+}
+
+type Zeile = { u: Uebertritt; ziel: Schule };
+const { s, detail, kategorie, schuljahr, aus, zu, ergebnis, zyklus, volksschule } = Astro.props as {
+  s: Schule; detail: any; kategorie: string; schuljahr: string; aus: Zeile[]; zu: Zeile[];
+  ergebnis: [Drittel | null, Drittel | null] | null; zyklus: string; volksschule: boolean;
+};
+const faecher = ergebnis ? ([['Deutsch (Lesen)', ergebnis[0]], ['Mathematik', ergebnis[1]]] as [string, Drittel | null][]) : [];
+const vorhanden = faecher.filter(([, d]) => d);
+const zeitraum = zyklus.replace('Schuljahre ', '').replace(' - ', ' – ');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+// Übertritte je Schulstufe gruppieren und nach Schulart des Ziels zusammenfassen
+const gruppiere = (rows: Zeile[]): Gruppe[] => {
+  const g = new Map<string, Zeile[]>();
+  for (const r of rows) (g.get(r.u[2]) ?? g.set(r.u[2], []).get(r.u[2])!).push(r);
+  return [...g.entries()].map(([code, z]) => {
+    const summe = z.reduce((a, r) => a + r.u[1], 0);
+    const proTyp = new Map<string, Zeile[]>();
+    for (const r of z) (proTyp.get(profilOf(r.ziel)) ?? proTyp.set(profilOf(r.ziel), []).get(profilOf(r.ziel))!).push(r);
+    const typen = [...proTyp.entries()]
+      .map(([id, rs]) => {
+        const n = rs.reduce((a, r) => a + r.u[1], 0);
+        return {
+          id,
+          label: profilLabel(id),
+          n,
+          pct: Math.round((n / summe) * 100),
+          zeilen: rs.sort((a, b) => b.u[1] - a.u[1]).map((r) => ({ ...r, pct: Math.round((r.u[1] / summe) * 100) })),
+        };
+      })
+      .sort((a, b) => b.n - a.n);
+    return { titel: stufeLabel(code), summe, typen };
+  });
+};
+const ausG = gruppiere(aus);
+const zuG = gruppiere(zu);
+
+const klasse = klassengroesse(s);
+const maedchen = maedchenAnteil(s);
+const hatStats = s.schueler !== undefined;
+const ziel = hatStandort(s) ? `${s.lat},${s.lon}` : null;
+const vergleich = hatStandort(s) ? `${base}vergleich/?lon=${s.lon}&lat=${s.lat}&r=5` : null;
+const title = `${s.name}, ${s.gemeinde ?? s.ort ?? ''} – SchulFinder`;
+const bl = bundeslandOf(s);
+---
+<Base title={title} description={`${kategorie} in ${s.gemeinde ?? s.ort} (Schulkennzahl ${s.skz}): Schülerzahl, Klassen, Kontakt und Übertritte.`}>
+  <main class="detail">
+    <a class="back" data-zurueck data-nur-seite href={base}>← Zur Karte</a>
+    <h1 data-nur-seite>{s.name}</h1>
+    <p class="sub" data-nur-seite>{detail?.art ?? kategorie}{s.gemeinde || s.ort ? ` · ${s.gemeinde ?? s.ort}` : ''}</p>
+    <div class="tags">
+      <span class="tag">{s.privat ? 'privat' : 'öffentlich'}</span>
+      {s.erhalter && <span class="tag">Erhalter: {s.erhalter}</span>}
+      <span class="tag">Schulkennzahl {s.skz}</span>
+      {s.bonus && <span class="tag tag-info">Chancenbonus</span>}
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn vergleich-toggle" data-nur-seite data-skz={s.skz} aria-pressed="false">
+        <svg class="ico vt-plus" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <svg class="ico vt-check" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>
+        <span class="vt-text">Zum Vergleich</span>
+      </button>
+      {detail?.tel && <a class="btn primary" href={`tel:${detail.tel.replace(/[^+\d]/g, '')}`}>Anrufen</a>}
+      {detail?.mail && <a class="btn" href={`mailto:${detail.mail}`}>E-Mail</a>}
+      {detail?.web && <a class="btn" href={detail.web} target="_blank" rel="noopener noreferrer">Website</a>}
+      {ziel && <a class="btn" href={`https://www.google.com/maps/dir/?api=1&destination=${ziel}`} target="_blank" rel="noopener">Route</a>}
+    </div>
+
+    <p class="muted" id="vergleichHinweis" data-nur-seite role="status" hidden></p>
+
+    <section data-nur-seite>
+      <h2>Adresse</h2>
+      <p>{adresse(s) || '–'}</p>
+      <p class="muted">{[detail?.bezirk, bl].filter(Boolean).join(', ')}</p>
+      <div class="actions" data-nur-seite>
+        {hatStandort(s) && <a class="btn" href={`${base}?skz=${s.skz}`}>Auf der Karte zeigen</a>}
+        {vergleich && <a class="btn" href={vergleich}>In der Umgebung vergleichen</a>}
+      </div>
+    </section>
+
+    <section>
+      <h2>Kennzahlen</h2>
+      {hatStats ? (
+        <div class="stats">
+          <div class="stat"><b>{fmtNum(s.schueler)}</b><span>Schüler:innen</span></div>
+          <div class="stat"><b>{fmtNum(s.klassen)}</b><span>Klassen</span></div>
+          <div class="stat"><b>{fmtNum(klasse, 1)}</b><span>Ø pro Klasse</span></div>
+          <div class="stat"><b>{maedchen !== undefined ? `${maedchen} %` : '–'}</b><span>Mädchenanteil</span></div>
+        </div>
+      ) : (
+        <p class="muted">Für diese Schule weist die Statistik Austria keine Schülerzahlen aus.</p>
+      )}
+      {hatStats && <p class="muted">Schuljahr {schuljahr}, Quelle: Statistik Austria.</p>}
+    </section>
+
+    {(vorhanden.length > 0 || volksschule) && (
+      <section class="ergebnis">
+        <h2>Schulmittelwerte</h2>
+        <p class="muted">Bildungsstandards (iKMPLUS), 4. Schulstufe, Schuljahre {zeitraum}</p>
+        {vorhanden.length > 0 ? (
+          <>
+            <p class="erg-satz">
+              Das Schulergebnis liegt{' '}
+              {vorhanden.map(([name, d], i) => (
+                <>{i > 0 && (i === vorhanden.length - 1 ? ' und ' : ', ')}in {name} im <b>{drittelImSatz(d!)}</b></>
+              ))}{' '}
+              vergleichbarer Schulen.
+            </p>
+            <div class="erg-liste">
+              {faecher.map(([name, d]) => (
+                <div class="erg-zeile">
+                  <span class="erg-name">{name}</span>
+                  <span class="erg-skala" role="img" aria-label={d ? `${name}: ${drittelImSatz(d)}` : `${name}: nicht verfügbar`}>
+                    {(['u', 'm', 'o'] as const).map((k) => <i class={d === k ? 'an' : ''}></i>)}
+                  </span>
+                  <span class="erg-wert">{drittelKurz(d)}</span>
+                </div>
+              ))}
+              <div class="erg-achse"><span>unteres</span><span>mittleres</span><span>oberes Drittel</span></div>
+            </div>
+          </>
+        ) : (
+          <p class="muted">Für diese Schule werden keine Schulmittelwerte angezeigt, etwa weil zu wenige Kinder teilgenommen haben oder kein vollständiger Zeitraum vorliegt.</p>
+        )}
+        <details class="erg-info">
+          <summary>Was bedeutet das?</summary>
+          <p>Kinder der 4. Schulstufe nehmen an der Kompetenzmessung iKMPLUS teil. Der Schulmittelwert ist der durchschnittliche Kompetenzwert aller teilnehmenden Kinder der Schule, über drei Schuljahre zusammengefasst.</p>
+          <p>Verglichen wird nicht mit allen Schulen in Österreich, sondern mit Schulen, deren Schülerschaft ähnliche Voraussetzungen mitbringt, etwa beim Bildungsstand, Beruf und Einkommen der Eltern, beim Migrationshintergrund und bei der Alltagssprache. Diese Schulen werden nach ihrem Mittelwert gereiht und in Drittel eingeteilt.</p>
+          <p>Es werden keine Werte angezeigt, wenn weniger als sechs Kinder teilgenommen haben oder kein vollständiger Dreijahreszeitraum vorliegt.</p>
+          <p>{HINWEIS_AUSSCHNITT} Für ein umfassenderes Bild helfen zum Beispiel ein Tag der offenen Tür oder ein persönliches Gespräch. Quelle: <a href="https://www.bildungskompass.gv.at" target="_blank" rel="noopener">Bildungskompass</a>.</p>
+        </details>
+      </section>
+    )}
+
+    {(ausG.length > 0 || zuG.length > 0) && (
+      <section>
+        <h2>Übertritte</h2>
+        <p class="muted">Wohin wechseln die Kinder nach dieser Schule, und woher kommen sie? Zusammengefasst nach Schulart des Ziels. Die Prozentwerte beziehen sich auf die Wechsel, die die Statistik Austria ausweist. Das können weniger Kinder sein als ein ganzer Jahrgang.</p>
+        {ausG.map((g) => <UebertrittBlock prefix="Abgänge" g={g} base={base} />)}
+        {zuG.map((g) => <UebertrittBlock prefix="Zugänge" g={g} base={base} />)}
+      </section>
+    )}
+
+    {s.bonus && (
+      <section>
+        <h2>Chancenbonus</h2>
+        <p class="muted">Der Bildungskompass kennzeichnet diese Schule als Standort des Chancenbonus-Programms. Das Programm des Bildungsministeriums gibt Pflichtschulen in sozial herausfordernden Lagen zusätzliches Personal. Das Kennzeichen sagt nichts über die Qualität des Unterrichts aus.</p>
+      </section>
+    )}
+
+    <p class="credit">
+      Daten: <a href="https://www.bildungskompass.gv.at" target="_blank" rel="noopener">Bildungskompass</a> (Bildungsministerium) und{' '}
+      <a href="https://data.statistik.gv.at/web/meta.jsp?dataset=OGDEXT_SCHULSRV_1" target="_blank" rel="noopener">Statistik Austria</a>.{' '}
+      {HINWEIS_AUSSCHNITT}
+    </p>
+  </main>
+  <script>
+    import '../../scripts/vergleichsknopf.ts';
+  </script>
+</Base>

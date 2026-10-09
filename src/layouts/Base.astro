@@ -1,0 +1,30 @@
+---
+import '../styles/global.css';
+interface Props { title: string; description?: string; fab?: boolean }
+const { title, description = 'Schulen in Österreich auf der Karte finden: Volksschulen, Mittelschulen, Gymnasien und mehr.', fab = true } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <slot />
+    {fab && (
+      <a class="fab" id="fab" href={`${base}vergleich/`} aria-label="Zum Vergleich">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h6v14H4zM14 5h6v14h-6z"/></svg>
+        <span class="fab-text">Vergleich</span>
+        <span class="fab-count" id="fabCount" hidden></span>
+      </a>
+    )}
+    <script>
+      import '../scripts/fab.ts';
+      import '../scripts/zurueck.ts';
+    </script>
+  </body>
+</html>

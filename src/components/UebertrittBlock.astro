@@ -1,0 +1,36 @@
+---
+import type { Schule, Uebertritt } from '../lib/types';
+
+export type Gruppe = {
+  titel: string;
+  summe: number;
+  typen: { id: string; label: string; n: number; pct: number; zeilen: { u: Uebertritt; ziel: Schule; pct: number }[] }[];
+};
+interface Props { prefix: string; g: Gruppe; base: string }
+const { prefix, g, base } = Astro.props;
+const stufe = g.titel.charAt(0).toLowerCase() + g.titel.slice(1);
+---
+<div class="ue">
+  <h3>{prefix} {stufe} <small class="muted">· {g.summe} erfasste Wechsel</small></h3>
+  <div class="ue-typen">
+    {g.typen.map((t) => (
+      <details class="ue-typ">
+        <summary>
+          <span class="ue-name">{t.label}<small>{t.n} {t.n === 1 ? 'Kind' : 'Kinder'} · {t.zeilen.length} {t.zeilen.length === 1 ? 'Schule' : 'Schulen'}</small></span>
+          <span class="ue-pct">{t.pct} %</span>
+          <span class="bar"><i style={`width:${Math.max(t.pct, 1.5)}%`}></i></span>
+        </summary>
+        <ul class="ue-schulen">
+          {t.zeilen.map((r) => (
+            <li>
+              <a href={`${base}schule/${r.ziel.skz}/`}>
+                <span class="ue-name">{r.ziel.name}<small>{[r.ziel.strasse, r.ziel.gemeinde ?? r.ziel.ort].filter(Boolean).join(', ')}</small></span>
+                <span class="ue-pct">{r.pct} % <small>({r.u[1]})</small></span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
+    ))}
+  </div>
+</div>

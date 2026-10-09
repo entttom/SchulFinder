@@ -1,0 +1,98 @@
+---
+import Base from '../../layouts/Base.astro';
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+import { HINWEIS_AUSSCHNITT } from '../../lib/types';
+---
+<Base fab={false} title="Schulen vergleichen – SchulFinder" description="Schulen in der Umgebung vergleichen: Entfernung, Schülerzahl, Klassengröße, Erhalter und Übertritte nebeneinander.">
+  <div class="vg" id="vg">
+    <header class="vg-top">
+      <a class="back" data-zurueck href={base}>← Karte</a>
+      <h1>Schulen vergleichen</h1>
+    </header>
+
+    <section class="vg-controls" aria-label="Auswahl">
+      <div class="vg-sticky">
+        <div class="vg-search">
+          <form class="search" id="searchForm" role="search" autocomplete="off">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input id="q" type="search" placeholder="Ort, Postleitzahl oder Schule" aria-label="Ort, Postleitzahl oder Schule" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" />
+            <button type="button" id="locate" class="icon-btn" aria-label="Meinen Standort verwenden">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg>
+            </button>
+          </form>
+          <ul id="suggest" class="suggest" role="listbox" hidden></ul>
+        </div>
+        <button type="button" class="filter-btn" id="filterBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="filterPanel">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+          <span id="filterSummary">Umkreis und Filter</span>
+          <svg class="ico chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+      </div>
+
+      <div class="filter-scrim" id="scrim"></div>
+      <div class="filter-panel" id="filterPanel" role="dialog" aria-label="Umkreis und Filter" tabindex="-1">
+        <div class="filter-head">
+          <strong>Umkreis und Filter</strong>
+          <button type="button" class="icon-btn" id="filterClose" aria-label="Schließen">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+        </div>
+        <div class="field">
+          <span class="label" id="radiusLabel">Umkreis</span>
+          <div class="chips wrap" id="radius" role="group" aria-labelledby="radiusLabel"></div>
+        </div>
+        <div class="field">
+          <span class="label" id="filterLabel">Filter</span>
+          <div class="chipgroup" id="chips" data-rows="2" role="group" aria-labelledby="filterLabel"></div>
+        </div>
+        <div class="filter-foot">
+          <button type="button" class="btn" id="filterReset">Zurücksetzen</button>
+          <button type="button" class="btn primary" id="filterDone">Schulen anzeigen</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="vg-results" aria-label="Ergebnis">
+      <div class="vg-head">
+        <strong id="count" aria-live="polite">Lade Schulen …</strong>
+        <label class="sortbox">Sortieren
+          <select id="sort">
+            <option value="dist">Entfernung</option>
+            <option value="schueler">Schülerzahl</option>
+            <option value="klasse">Klassengröße</option>
+            <option value="maedchen">Mädchenanteil</option>
+            <option value="name">Name</option>
+          </select>
+        </label>
+      </div>
+      <p class="hint" id="hint" hidden></p>
+      <div class="vg-cols" id="cols" hidden></div>
+      <ul class="vg-rows" id="rows"></ul>
+      <p class="credit">
+        Daten: <a href="https://www.bildungskompass.gv.at" target="_blank" rel="noopener">Bildungskompass</a> und{' '}
+        <a href="https://data.statistik.gv.at/web/meta.jsp?dataset=OGDEXT_SCHULSRV_1" target="_blank" rel="noopener">Statistik Austria</a>{' '}
+        (<span id="schuljahr"></span>). {HINWEIS_AUSSCHNITT}
+      </p>
+    </section>
+
+    <div class="vg-bar" id="bar" hidden>
+      <div class="sel-panel" id="selPanel" hidden></div>
+      <button type="button" class="sel-info" id="selInfo" aria-expanded="false" aria-controls="selPanel"></button>
+      <button type="button" class="btn small" id="clearSel">Leeren</button>
+      <button type="button" class="btn small primary" id="openCmp">Vergleichen</button>
+    </div>
+
+    <dialog id="cmp" class="cmp" aria-labelledby="cmpTitle">
+      <div class="cmp-head">
+        <h2 id="cmpTitle">Nebeneinander</h2>
+        <button type="button" class="icon-btn" id="closeCmp" aria-label="Schließen">
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+      <div class="cmp-scroll" id="cmpBody"></div>
+    </dialog>
+  </div>
+  <script>
+    import '../../scripts/vergleich.ts';
+  </script>
+</Base>
